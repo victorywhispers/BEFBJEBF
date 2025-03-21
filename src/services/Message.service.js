@@ -67,29 +67,24 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     try {
-        // Get the previous user message
-        const messages = Array.from(responseElement.parentElement.children);
-        const elementIndex = messages.indexOf(responseElement);
-        const userMessages = messages.slice(0, elementIndex).filter(msg => 
-            msg.querySelector('.message-role')?.textContent === 'You:'
-        );
-        const lastUserMessage = userMessages[userMessages.length - 1];
-
-        if (!lastUserMessage) {
-            console.error('No previous user message found');
+        // Get the user's message that triggered this response
+        const previousElement = responseElement.previousElementSibling;
+        if (!previousElement) {
+            ErrorService.showError('Cannot regenerate: No previous message found', 'error');
             return;
         }
 
-        const messageText = lastUserMessage.querySelector('.message-text');
-        if (!messageText) {
-            console.error('No message text element found');
+        const userMessageText = previousElement.querySelector('.message-text')?.textContent;
+        if (!userMessageText) {
+            ErrorService.showError('Cannot regenerate: Invalid message content', 'error');
             return;
         }
 
-        const userMessage = messageText.textContent;
+        // Get current chat and message index
         const chat = await chatsService.getCurrentChat(db);
+        const elementIndex = Array.from(responseElement.parentElement.children).indexOf(responseElement);
 
-        // Show loading state
+        // Show loading state on refresh button
         const refreshBtn = responseElement.querySelector('.btn-refresh');
         if (!refreshBtn) return;
 
@@ -98,8 +93,9 @@ export async function regenerate(responseElement, db) {
         refreshBtn.disabled = true;
 
         try {
-            // Remove this response and subsequent messages
-            const messagesToRemove = messages.slice(elementIndex);
+            // Remove this response and all messages after it
+            const messagesToRemove = Array.from(responseElement.parentElement.children)
+                .slice(elementIndex);
             messagesToRemove.forEach(msg => msg.remove());
 
             // Update chat history
@@ -109,7 +105,7 @@ export async function regenerate(responseElement, db) {
             }
             
             // Generate new response
-            await send(userMessage, db);
+            await send(userMessageText, db);
             
         } catch (error) {
             console.error('Failed to regenerate:', error);
