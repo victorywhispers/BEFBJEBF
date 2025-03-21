@@ -18,47 +18,80 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole}</h3>
-                <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+                <h3 class="message-role">${messageRole || 'AI'}</h3>
+                <button class="btn-refresh btn-textual material-symbols-outlined" title="Regenerate response">refresh</button>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
         `;
+        
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons(); // Add copy buttons after parsing markdown
+            helpers.addCopyButtons();
         }
-        return newMessage;
     } else {
-        const messageRole = "You:";
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole}</h3>
+                <h3 class="message-role">You:</h3>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text">${helpers.getDecoded(msg)}</div>
         `;
     }
+
     return newMessage;
 }
 
-export async function regenerate(responseElement, db) { // Add db parameter
+export async function regenerate(responseElement, db) {
     try {
-        // Get the user's message that generated this response
-        const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        // Verify response element exists
+        if (!responseElement || !responseElement.parentElement) {
+            throw new Error('Invalid response element');
+        }
+
+        // Get previous message element more reliably
+        const previousElement = responseElement.previousElementSibling;
+        if (!previousElement) {
+            throw new Error('Previous message not found');
+        }
+
+        // Get message text with error handling
+        const messageTextElement = previousElement.querySelector(".message-text");
+        if (!messageTextElement) {
+            throw new Error('Message text element not found');
+        }
+
+        const message = messageTextElement.textContent;
+        if (!message) {
+            throw new Error('Empty message content');
+        }
+
+        // Get current position in chat
         const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
-        const chat = await chatsService.getCurrentChat(db); // Pass db here
+        
+        // Get current chat with error handling
+        const chat = await chatsService.getCurrentChat(db);
+        if (!chat) {
+            throw new Error('No active chat found');
+        }
 
         // Remove messages after the one we're regenerating
         chat.content = chat.content.slice(0, elementIndex - 1);
         await db.chats.put(chat);
         
-        // Reload chat and generate new response
-        await chatsService.loadChat(chat.id, db); // Pass db here
-        await send(message, db); // Pass db here
+        // Remove UI messages after current one
+        while (responseElement.nextSibling) {
+            responseElement.nextSibling.remove();
+        }
+        responseElement.remove();
+
+        // Generate new response
+        await send(message, db);
+
     } catch (error) {
         console.error('Error regenerating message:', error);
+        ErrorService.showError(`Failed to regenerate message: ${error.message}`, 'error');
         throw error;
     }
 }
