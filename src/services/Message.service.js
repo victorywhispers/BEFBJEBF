@@ -14,6 +14,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     messageContainer.append(newMessage);
 
     if (sender !== "user") {
+        // AI message structure
         newMessage.classList.add("message-model");
         const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
@@ -30,26 +31,22 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons(); // Add copy buttons after parsing markdown
+            helpers.addCopyButtons();
         }
-        return newMessage;
     } else {
-        const messageRole = "You:";
+        // User message structure - Fixed to match AI message structure
+        newMessage.classList.add("message-user");
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole}</h3>
+                <h3 class="message-role">You</h3>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text">${helpers.getDecoded(msg)}</div>
+            <div class="message-text">${marked.parse(helpers.getEncoded(msg))}</div>
         `;
     }
-    
-    newMessage.innerHTML = marked.parse(msg);
+
     messageContainer.appendChild(newMessage);
-    
-    // Add this line to ensure copy buttons are added immediately
     helpers.addCopyButtons();
-    
     helpers.messageContainerScrollToBottom();
     
     return newMessage;
