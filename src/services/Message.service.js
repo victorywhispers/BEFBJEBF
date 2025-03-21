@@ -14,98 +14,51 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     messageContainer.append(newMessage);
 
     if (sender !== "user") {
-        // AI message structure
         newMessage.classList.add("message-model");
         const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole || 'AI'}</h3>
-                <div class="message-actions">
-                    <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
-                </div>
+                <h3 class="message-role">${messageRole}</h3>
+                <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
         `;
-        
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons();
+            helpers.addCopyButtons(); // Add copy buttons after parsing markdown
         }
+        return newMessage;
     } else {
-        // User message structure - Fixed to match AI message structure
-        newMessage.classList.add("message-user");
+        const messageRole = "You:";
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">You</h3>
+                <h3 class="message-role">${messageRole}</h3>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text">${marked.parse(helpers.getEncoded(msg))}</div>
+            <div class="message-text">${helpers.getDecoded(msg)}</div>
         `;
     }
-
-    messageContainer.appendChild(newMessage);
-    helpers.addCopyButtons();
-    helpers.messageContainerScrollToBottom();
-    
     return newMessage;
 }
 
-export async function regenerate(responseElement, db) {
+export async function regenerate(responseElement, db) { // Add db parameter
     try {
-        // Verify responseElement exists
-        if (!responseElement) {
-            throw new Error('Response element not found');
-        }
+        // Get the user's message that generated this response
+        const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        const chat = await chatsService.getCurrentChat(db); // Pass db here
 
-        // Get the parent message container
-        const messageContainer = responseElement.closest('.message-container');
-        if (!messageContainer) {
-            throw new Error('Message container not found');
-        }
-
-        // Find the previous user message more reliably
-        const messages = [...messageContainer.children];
-        const currentIndex = messages.indexOf(responseElement);
-        const previousElement = messages[currentIndex - 1];
-
-        if (!previousElement || !previousElement.classList.contains('message')) {
-            throw new Error('Previous message not found');
-        }
-
-        // Get message text using a more specific selector
-        const messageTextElement = previousElement.querySelector('.message-text');
-        if (!messageTextElement) {
-            throw new Error('Message text element not found');
-        }
-
-        const message = messageTextElement.textContent.trim();
-        if (!message) {
-            throw new Error('Empty message content');
-        }
-
-        // Get current chat and verify
-        const chat = await chatsService.getCurrentChat(db);
-        if (!chat) {
-            throw new Error('No active chat found');
-        }
-
-        // Remove messages after the current one
-        chat.content = chat.content.slice(0, currentIndex);
+        // Remove messages after the one we're regenerating
+        chat.content = chat.content.slice(0, elementIndex - 1);
         await db.chats.put(chat);
-
-        // Remove UI messages
-        while (messageContainer.children.length > currentIndex) {
-            messageContainer.lastChild.remove();
-        }
-
-        // Generate new response
-        await send(message, db);
-
+        
+        // Reload chat and generate new response
+        await chatsService.loadChat(chat.id, db); // Pass db here
+        await send(message, db); // Pass db here
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError(`Failed to regenerate: ${error.message}`, 'error');
         throw error;
     }
 }
