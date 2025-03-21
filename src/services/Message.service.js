@@ -18,12 +18,15 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole}</h3>
-                <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+                <h3 class="message-role">${messageRole || 'AI'}</h3>
+                <div class="message-actions">
+                    <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+                </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
         `;
+        
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
@@ -54,33 +57,58 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     try {
-        // Add null checks for the previous element and message text
-        const previousElement = responseElement?.previousElementSibling;
-        const messageTextElement = previousElement?.querySelector(".message-text");
-        
-        if (!messageTextElement) {
-            console.error('Could not find previous message text element');
+        // Verify responseElement exists
+        if (!responseElement) {
+            throw new Error('Response element not found');
+        }
+
+        // Get the parent message container
+        const messageContainer = responseElement.closest('.message-container');
+        if (!messageContainer) {
+            throw new Error('Message container not found');
+        }
+
+        // Find the previous user message more reliably
+        const messages = [...messageContainer.children];
+        const currentIndex = messages.indexOf(responseElement);
+        const previousElement = messages[currentIndex - 1];
+
+        if (!previousElement || !previousElement.classList.contains('message')) {
             throw new Error('Previous message not found');
         }
 
-        const message = messageTextElement.textContent;
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
-        const chat = await chatsService.getCurrentChat(db);
-
-        if (!message || !chat) {
-            throw new Error('Invalid message or chat data');
+        // Get message text using a more specific selector
+        const messageTextElement = previousElement.querySelector('.message-text');
+        if (!messageTextElement) {
+            throw new Error('Message text element not found');
         }
 
-        // Remove messages after the one we're regenerating
-        chat.content = chat.content.slice(0, elementIndex - 1);
+        const message = messageTextElement.textContent.trim();
+        if (!message) {
+            throw new Error('Empty message content');
+        }
+
+        // Get current chat and verify
+        const chat = await chatsService.getCurrentChat(db);
+        if (!chat) {
+            throw new Error('No active chat found');
+        }
+
+        // Remove messages after the current one
+        chat.content = chat.content.slice(0, currentIndex);
         await db.chats.put(chat);
-        
-        // Reload chat and generate new response
-        await chatsService.loadChat(chat.id, db);
+
+        // Remove UI messages
+        while (messageContainer.children.length > currentIndex) {
+            messageContainer.lastChild.remove();
+        }
+
+        // Generate new response
         await send(message, db);
+
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError('Failed to regenerate message. Please try again.', 'error');
+        ErrorService.showError(`Failed to regenerate: ${error.message}`, 'error');
         throw error;
     }
 }
