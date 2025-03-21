@@ -84,21 +84,21 @@ export async function regenerate(responseElement, db) {
         refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         refreshBtn.disabled = true;
 
-        // Get previous message element and verify it exists
+        // Get previous message element (user message)
         const previousElement = responseElement.previousElementSibling;
         if (!previousElement) {
-            throw new Error('Previous message not found');
+            throw new Error('Previous user message not found');
         }
 
-        // Get message text element and verify it exists
-        const messageTextElement = previousElement.querySelector(".message-text");
-        if (!messageTextElement) {
-            throw new Error('Message text element not found');
+        // Find message text within correct div structure
+        const messageText = previousElement.querySelector('.message-text');
+        if (!messageText) {
+            throw new Error('Message text element not found in user message');
         }
 
-        // Get user message
-        const userMessage = messageTextElement.textContent;
-        if (!userMessage) {
+        // Get user message content
+        const userMessage = messageText.textContent || messageText.innerText;
+        if (!userMessage || userMessage.trim().length === 0) {
             throw new Error('No message content found');
         }
 
@@ -107,10 +107,12 @@ export async function regenerate(responseElement, db) {
         const chat = await chatsService.getCurrentChat(db);
         
         // Update chat content and save
-        chat.content = chat.content.slice(0, elementIndex);
-        await db.chats.put(chat);
+        if (chat && chat.content) {
+            chat.content = chat.content.slice(0, elementIndex);
+            await db.chats.put(chat);
+        }
 
-        // Remove subsequent messages
+        // Remove subsequent messages and current message
         while (responseElement.nextElementSibling) {
             responseElement.nextElementSibling.remove();
         }
@@ -123,7 +125,7 @@ export async function regenerate(responseElement, db) {
         console.error('Error regenerating message:', error);
         ErrorService.showError(`Failed to regenerate message: ${error.message}`, 'error');
         
-        // Reset button state if we have the button
+        // Reset button state
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
             refreshBtn.disabled = false;
