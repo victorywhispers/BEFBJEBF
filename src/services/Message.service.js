@@ -18,80 +18,89 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole || 'AI'}</h3>
-                <button class="btn-refresh btn-textual material-symbols-outlined" title="Regenerate response">refresh</button>
+                <h3 class="message-role">${messageRole}</h3>
+                <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
         `;
-        
+
+        // Add refresh button handler immediately
+        const refreshBtn = newMessage.querySelector('.btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.onclick = async () => {
+                try {
+                    await regenerate(newMessage, db);
+                } catch (error) {
+                    console.error('Refresh failed:', error);
+                }
+            };
+        }
+
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons();
+            helpers.addCopyButtons(); // Add copy buttons after parsing markdown
         }
+        return newMessage;
     } else {
+        const messageRole = "You:";
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">You:</h3>
+                <h3 class="message-role">${messageRole}</h3>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text">${helpers.getDecoded(msg)}</div>
         `;
     }
-
+    
+    newMessage.innerHTML = marked.parse(msg);
+    messageContainer.appendChild(newMessage);
+    
+    // Add this line to ensure copy buttons are added immediately
+    helpers.addCopyButtons();
+    
+    helpers.messageContainerScrollToBottom();
+    
     return newMessage;
 }
 
 export async function regenerate(responseElement, db) {
     try {
-        // Verify response element exists
-        if (!responseElement || !responseElement.parentElement) {
-            throw new Error('Invalid response element');
-        }
-
-        // Get previous message element more reliably
-        const previousElement = responseElement.previousElementSibling;
-        if (!previousElement) {
-            throw new Error('Previous message not found');
-        }
-
-        // Get message text with error handling
-        const messageTextElement = previousElement.querySelector(".message-text");
-        if (!messageTextElement) {
-            throw new Error('Message text element not found');
-        }
-
-        const message = messageTextElement.textContent;
-        if (!message) {
-            throw new Error('Empty message content');
-        }
-
-        // Get current position in chat
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
-        
-        // Get current chat with error handling
+        // Get the user's message that generated this response
+        const userMessage = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        const elementIndex = Array.from(responseElement.parentElement.children).indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
-        if (!chat) {
-            throw new Error('No active chat found');
-        }
 
-        // Remove messages after the one we're regenerating
-        chat.content = chat.content.slice(0, elementIndex - 1);
+        // Show loading state on refresh button
+        const refreshBtn = responseElement.querySelector('.btn-refresh');
+        const originalContent = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
+        refreshBtn.disabled = true;
+
+        // Remove this response and all messages after it
+        const messagesToRemove = Array.from(responseElement.parentElement.children)
+            .slice(elementIndex);
+        messagesToRemove.forEach(msg => msg.remove());
+
+        // Update chat history
+        chat.content = chat.content.slice(0, elementIndex);
         await db.chats.put(chat);
         
-        // Remove UI messages after current one
-        while (responseElement.nextSibling) {
-            responseElement.nextSibling.remove();
-        }
-        responseElement.remove();
-
         // Generate new response
-        await send(message, db);
+        await send(userMessage, db);
+
+        // Cleanup
+        refreshBtn.innerHTML = originalContent;
+        refreshBtn.disabled = false;
 
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError(`Failed to regenerate message: ${error.message}`, 'error');
+        ErrorService.showError('Failed to regenerate response. Please try again.', 'error');
+        // Reset refresh button
+        const refreshBtn = responseElement.querySelector('.btn-refresh');
+        refreshBtn.innerHTML = 'refresh';
+        refreshBtn.disabled = false;
         throw error;
     }
 }
