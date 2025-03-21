@@ -40,6 +40,15 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             <div class="message-text">${helpers.getDecoded(msg)}</div>
         `;
     }
+    
+    newMessage.innerHTML = marked.parse(msg);
+    messageContainer.appendChild(newMessage);
+    
+    // Add this line to ensure copy buttons are added immediately
+    helpers.addCopyButtons();
+    
+    helpers.messageContainerScrollToBottom();
+    
     return newMessage;
 }
 

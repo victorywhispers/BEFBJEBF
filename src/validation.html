@@ -43,25 +43,20 @@
             <div class="verification-card">
                 <div class="glow-effect"></div>
                 <div class="card-content">
-                    <div class="card-header">
-                        <span class="material-symbols-outlined">vpn_key</span>
-                        <h2>Verify Your Access</h2>
-                    </div>
-                    <p class="card-description">Enter your WormGPT access key to continue</p>
                     <div class="key-input-section">
                         <input type="text" 
                             id="verificationKeyInput" 
                             placeholder="Enter your key (e.g., WR-XXXXXXXXXX)"
                             class="verification-input"
                         >
+                        <div class="verification-actions">
+                            <button id="verifyKeyBtn" class="verify-button verify">
+                                <span class="material-symbols-outlined">check_circle</span>
+                                Verify
+                            </button>
+                        </div>
+                        <div id="verificationStatus" class="verification-status"></div>
                     </div>
-                    <div class="verification-actions">
-                        <button id="verifyKeyBtn" class="verify-button verify">
-                            <span class="material-symbols-outlined">check_circle</span>
-                            Verify
-                        </button>
-                    </div>
-                    <div id="verificationStatus" class="verification-status"></div>
                 </div>
             </div>
         </main>

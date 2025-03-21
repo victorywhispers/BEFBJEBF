@@ -1,6 +1,7 @@
 export class ChatLimitService {
     constructor() {
-        this.storageKey = 'chatLimits';
+        this.storageKey = 'chat_limits';
+        this.processingMessage = false; // Add this flag
     }
 
     async initializeChatLimit() {
@@ -44,13 +45,26 @@ export class ChatLimitService {
     }
 
     async decrementChatLimit() {
-        await this.checkDailyReset();
-        const limits = JSON.parse(localStorage.getItem(this.storageKey));
-        if (limits.remaining > 0) {
-            limits.remaining--;
-            localStorage.setItem(this.storageKey, JSON.stringify(limits));
+        // Only decrement if not currently processing a message
+        if (this.processingMessage) {
+            return await this.getRemainingChats();
         }
-        return limits.remaining;
+
+        try {
+            this.processingMessage = true;
+            await this.checkDailyReset();
+            const limits = JSON.parse(localStorage.getItem(this.storageKey));
+            if (limits && limits.remaining > 0) {
+                limits.remaining--;
+                localStorage.setItem(this.storageKey, JSON.stringify(limits));
+            }
+            return limits ? limits.remaining : 0;
+        } finally {
+            // Reset the flag after processing
+            setTimeout(() => {
+                this.processingMessage = false;
+            }, 1000);
+        }
     }
 
     async getRemainingChats() {

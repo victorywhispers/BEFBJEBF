@@ -80,36 +80,61 @@ export function messageContainerScrollToBottom(){
 }
 
 export function addCopyButtons() {
-    // Find all code blocks
     const codeBlocks = document.querySelectorAll('pre code');
     
     codeBlocks.forEach(code => {
-        // Create wrapper div
-        const wrapper = document.createElement('div');
-        wrapper.className = 'code-block-wrapper';
+        // Get language from class
+        const language = code.className.replace('language-', '');
         
-        // Create copy button
-        const copyButton = document.createElement('button');
-        copyButton.className = 'copy-code-button';
-        copyButton.innerHTML = '<span class="material-symbols-outlined">content_copy</span>';
-        
-        // Add click handler
-        copyButton.addEventListener('click', async () => {
-            const text = code.textContent;
-            try {
-                await navigator.clipboard.writeText(text);
-                copyButton.innerHTML = '<span class="material-symbols-outlined">check</span>';
-                setTimeout(() => {
-                    copyButton.innerHTML = '<span class="material-symbols-outlined">content_copy</span>';
-                }, 2000);
-            } catch (err) {
-                console.error('Failed to copy code:', err);
+        // Create wrapper div if not exists
+        let wrapper = code.closest('.code-block-wrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.className = 'code-block-wrapper';
+            wrapper.setAttribute('data-language', language || 'text');
+            code.parentNode.insertBefore(wrapper, code);
+            wrapper.appendChild(code);
+            
+            // Add copy button
+            const copyButton = document.createElement('button');
+            copyButton.className = 'copy-code-button';
+            copyButton.innerHTML = '<span class="material-symbols-outlined">content_copy</span>';
+            
+            // Add mouseover event to ensure button is visible
+            wrapper.addEventListener('mouseenter', () => {
+                copyButton.style.opacity = '1';
+            });
+            
+            wrapper.addEventListener('mouseleave', () => {
+                copyButton.style.opacity = '0';
+            });
+            
+            copyButton.addEventListener('click', async (e) => {
+                e.stopPropagation(); // Prevent event bubbling
+                const text = code.textContent;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copyButton.innerHTML = '<span class="material-symbols-outlined">check</span>';
+                    setTimeout(() => {
+                        copyButton.innerHTML = '<span class="material-symbols-outlined">content_copy</span>';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy code:', err);
+                }
+            });
+            
+            wrapper.appendChild(copyButton);
+        }
+    });
+    
+    // Add click handler to message container to ensure copy buttons are always available
+    const messageContainer = document.querySelector('.message-container');
+    if (messageContainer && !messageContainer.hasAttribute('copy-handler')) {
+        messageContainer.setAttribute('copy-handler', 'true');
+        messageContainer.addEventListener('click', (e) => {
+            if (e.target.closest('pre code')) {
+                addCopyButtons();
             }
         });
-        
-        // Wrap the code block
-        code.parentNode.insertBefore(wrapper, code);
-        wrapper.appendChild(code);
-        wrapper.appendChild(copyButton);
-    });
+    }
 }

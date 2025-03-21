@@ -2587,38 +2587,31 @@ textarea:focus {
 }
 
 .verification-content {
-    position: relative;
-    z-index: 10;
     display: flex;
-    justify-content: center;
     align-items: center;
-    min-height: calc(100vh - 5rem);
-    padding: 2rem;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
 }
 
 .verification-card {
     position: relative;
     width: 100%;
-    max-width: 28rem;
-}
-
-.glow-effect {
-    position: absolute;
-    inset: -1px;
-    background: linear-gradient(45deg, #ef4444, #991b1b);
+    max-width: 480px;
+    background: rgba(17, 24, 39, 0.95);
     border-radius: 1rem;
-    filter: blur(20px);
-    opacity: 0.1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    margin: auto;
+    transform: translateY(0); /* Remove the -5% offset */
 }
 
 .card-content {
-    position: relative;
-    background: rgba(17, 17, 17, 0.95);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 1rem;
-    padding: 2rem;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
 }
 
 .card-header {
@@ -3030,6 +3023,14 @@ textarea:focus {
 .code-block-wrapper {
     position: relative;
     margin: 1em 0;
+    background: #1e1e1e;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.code-block-wrapper pre {
+    margin: 0;
+    padding: 1rem;
 }
 
 .copy-code-button {
@@ -3037,16 +3038,13 @@ textarea:focus {
     top: 0.5rem;
     right: 0.5rem;
     padding: 0.4rem;
-    background: rgba(13, 17, 23, 0.95);
-    border: 1px solid rgba(139, 0, 0, 0.2);
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
     color: #fff;
     cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     opacity: 0;
+    transition: all 0.2s ease;
 }
 
 .code-block-wrapper:hover .copy-code-button {
@@ -3054,12 +3052,25 @@ textarea:focus {
 }
 
 .copy-code-button:hover {
-    background: rgba(139, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.2);
     transform: translateY(-1px);
 }
 
 .copy-code-button .material-symbols-outlined {
-    font-size: 1.2rem;
+    font-size: 18px;
+}
+
+/* Add language label */
+.code-block-wrapper::before {
+    content: attr(data-language);
+    position: absolute;
+    top: 0;
+    right: 3rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.8rem;
+    color: #888;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom-left-radius: 4px;
 }
 
 pre {
@@ -3074,4 +3085,89 @@ pre code {
     border-radius: 6px;
     background: rgba(13, 17, 23, 0.95) !important;
     border: 1px solid rgba(139, 0, 0, 0.2);
+}
+
+/* Verification page layout fixes */
+.verification-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.verification-card {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    background: rgba(17, 24, 39, 0.95);
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    margin: auto;
+    transform: translateY(0); /* Remove the -5% offset */
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.key-input-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.verification-input {
+    width: 100%;
+    max-width: 400px;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 0.5rem;
+    color: white;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.verification-actions {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    justify-content: center;
+}
+
+.verify-button {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .verification-card {
+        padding: 1.5rem;
+        margin: 1rem;
+        transform: translateY(0); /* Remove vertical offset on mobile */
+    }
+
+    .verification-input,
+    .verification-actions {
+        max-width: 100%;
+    }
+
+    .card-header {
+        text-align: center;
+    }
+
+    .card-description {
+        text-align: center;
+        font-size: 0.9rem;
+    }
 }

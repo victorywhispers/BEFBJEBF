@@ -17,6 +17,7 @@ export class ChatInput {
         
         // Initialize the component
         this.initialize();
+        this.setupMessageObserver();
     }
 
     async initialize() {
@@ -87,6 +88,64 @@ export class ChatInput {
             <button onclick="this.parentElement.remove()">Got it</button>
         `;
         document.body.appendChild(alertDiv);
+    }
+
+    setupMessageObserver() {
+        // Create an observer to watch for new messages
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.addedNodes.length) {
+                    // Call addCopyButtons whenever new messages are added
+                    this.addCopyButtonsToNewMessages(mutation.addedNodes);
+                }
+            });
+        });
+
+        // Start observing the message container
+        const messageContainer = document.querySelector('.message-container');
+        observer.observe(messageContainer, { childList: true, subtree: true });
+    }
+
+    addCopyButtonsToNewMessages(nodes) {
+        nodes.forEach(node => {
+            if (node.classList && node.classList.contains('ai-message')) {
+                const codeBlocks = node.querySelectorAll('pre code');
+                if (codeBlocks.length > 0) {
+                    codeBlocks.forEach(code => {
+                        // Wrap code block if not already wrapped
+                        let wrapper = code.closest('.code-block-wrapper');
+                        if (!wrapper) {
+                            wrapper = document.createElement('div');
+                            wrapper.className = 'code-block-wrapper';
+                            code.parentNode.insertBefore(wrapper, code);
+                            wrapper.appendChild(code);
+                        }
+
+                        // Add copy button if not exists
+                        if (!wrapper.querySelector('.copy-code-button')) {
+                            const copyButton = document.createElement('button');
+                            copyButton.className = 'copy-code-button';
+                            copyButton.innerHTML = '<span class="material-symbols-outlined">content_copy</span>';
+                            
+                            copyButton.addEventListener('click', async () => {
+                                const text = code.textContent;
+                                try {
+                                    await navigator.clipboard.writeText(text);
+                                    copyButton.innerHTML = '<span class="material-symbols-outlined">check</span>';
+                                    setTimeout(() => {
+                                        copyButton.innerHTML = '<span class="material-symbols-outlined">content_copy</span>';
+                                    }, 2000);
+                                } catch (err) {
+                                    console.error('Failed to copy code:', err);
+                                }
+                            });
+                            
+                            wrapper.appendChild(copyButton);
+                        }
+                    });
+                }
+            }
+        });
     }
 
     init() {
