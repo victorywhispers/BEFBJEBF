@@ -52,22 +52,35 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     return newMessage;
 }
 
-export async function regenerate(responseElement, db) { // Add db parameter
+export async function regenerate(responseElement, db) {
     try {
-        // Get the user's message that generated this response
-        const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        // Add null checks for the previous element and message text
+        const previousElement = responseElement?.previousElementSibling;
+        const messageTextElement = previousElement?.querySelector(".message-text");
+        
+        if (!messageTextElement) {
+            console.error('Could not find previous message text element');
+            throw new Error('Previous message not found');
+        }
+
+        const message = messageTextElement.textContent;
         const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
-        const chat = await chatsService.getCurrentChat(db); // Pass db here
+        const chat = await chatsService.getCurrentChat(db);
+
+        if (!message || !chat) {
+            throw new Error('Invalid message or chat data');
+        }
 
         // Remove messages after the one we're regenerating
         chat.content = chat.content.slice(0, elementIndex - 1);
         await db.chats.put(chat);
         
         // Reload chat and generate new response
-        await chatsService.loadChat(chat.id, db); // Pass db here
-        await send(message, db); // Pass db here
+        await chatsService.loadChat(chat.id, db);
+        await send(message, db);
     } catch (error) {
         console.error('Error regenerating message:', error);
+        ErrorService.showError('Failed to regenerate message. Please try again.', 'error');
         throw error;
     }
 }
