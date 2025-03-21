@@ -66,38 +66,66 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 }
 
 export async function regenerate(responseElement, db) {
+    let refreshBtn = null;
     try {
-        // Show loading state
-        const refreshBtn = responseElement.querySelector('.btn-refresh');
+        // Verify response element exists
+        if (!responseElement) {
+            throw new Error('Response element not found');
+        }
+
+        // Get and store refresh button first
+        refreshBtn = responseElement.querySelector('.btn-refresh');
+        if (!refreshBtn) {
+            throw new Error('Refresh button not found');
+        }
+
+        // Store original content and update UI
         const originalContent = refreshBtn.innerHTML;
         refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         refreshBtn.disabled = true;
 
-        // Get the user's message that generated this response
-        const userMessage = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        // Get previous message element and verify it exists
+        const previousElement = responseElement.previousElementSibling;
+        if (!previousElement) {
+            throw new Error('Previous message not found');
+        }
+
+        // Get message text element and verify it exists
+        const messageTextElement = previousElement.querySelector(".message-text");
+        if (!messageTextElement) {
+            throw new Error('Message text element not found');
+        }
+
+        // Get user message
+        const userMessage = messageTextElement.textContent;
+        if (!userMessage) {
+            throw new Error('No message content found');
+        }
+
+        // Get chat index and update DB
         const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
-
-        // Remove current and subsequent messages
+        
+        // Update chat content and save
         chat.content = chat.content.slice(0, elementIndex);
         await db.chats.put(chat);
 
-        // Remove messages from UI
+        // Remove subsequent messages
         while (responseElement.nextElementSibling) {
             responseElement.nextElementSibling.remove();
         }
         responseElement.remove();
 
-        // Regenerate response
+        // Generate new response
         await send(userMessage, db);
 
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError('Failed to regenerate message. Please try again.', 'error');
+        ErrorService.showError(`Failed to regenerate message: ${error.message}`, 'error');
         
-        // Reset button state
+        // Reset button state if we have the button
         if (refreshBtn) {
-            refreshBtn.innerHTML = originalContent;
+            refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
             refreshBtn.disabled = false;
         }
     }
