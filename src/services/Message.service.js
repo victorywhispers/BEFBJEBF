@@ -74,31 +74,39 @@ export async function regenerate(responseElement, db) {
             return;
         }
 
-        const userMessageText = previousElement.querySelector('.message-text')?.textContent;
-        if (!userMessageText) {
-            ErrorService.showError('Cannot regenerate: Invalid message content', 'error');
+        // Fix message text extraction
+        const messageText = previousElement.querySelector('.message-text');
+        if (!messageText) {
+            ErrorService.showError('Cannot regenerate: Message element not found', 'error');
             return;
         }
 
-        // Get current chat and message index
-        const chat = await chatsService.getCurrentChat(db);
-        const elementIndex = Array.from(responseElement.parentElement.children).indexOf(responseElement);
+        // Get raw text content and clean it
+        const userMessageText = messageText.textContent.trim();
+        if (!userMessageText) {
+            ErrorService.showError('Cannot regenerate: Empty message content', 'error');
+            return;
+        }
 
         // Show loading state on refresh button
         const refreshBtn = responseElement.querySelector('.btn-refresh');
-        if (!refreshBtn) return;
+        if (!refreshBtn) {
+            ErrorService.showError('Cannot regenerate: Refresh button not found', 'error');
+            return;
+        }
 
         const originalContent = refreshBtn.innerHTML;
         refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         refreshBtn.disabled = true;
 
         try {
-            // Remove this response and all messages after it
+            // Remove this response and messages after it
             const messagesToRemove = Array.from(responseElement.parentElement.children)
                 .slice(elementIndex);
             messagesToRemove.forEach(msg => msg.remove());
 
             // Update chat history
+            const chat = await chatsService.getCurrentChat(db);
             if (chat) {
                 chat.content = chat.content.slice(0, elementIndex);
                 await db.chats.put(chat);
@@ -110,7 +118,6 @@ export async function regenerate(responseElement, db) {
         } catch (error) {
             console.error('Failed to regenerate:', error);
             ErrorService.showError('Failed to regenerate response', 'error');
-            throw error;
         } finally {
             // Reset button state
             refreshBtn.innerHTML = originalContent;
