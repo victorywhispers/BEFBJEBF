@@ -67,59 +67,63 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     try {
-        // Check if previous message exists before accessing it
-        const previousMessage = responseElement.previousElementSibling;
-        if (!previousMessage) {
-            console.error('No previous message found to regenerate');
+        // Get the previous user message
+        const messages = Array.from(responseElement.parentElement.children);
+        const elementIndex = messages.indexOf(responseElement);
+        const userMessages = messages.slice(0, elementIndex).filter(msg => 
+            msg.querySelector('.message-role')?.textContent === 'You:'
+        );
+        const lastUserMessage = userMessages[userMessages.length - 1];
+
+        if (!lastUserMessage) {
+            console.error('No previous user message found');
             return;
         }
 
-        const messageText = previousMessage.querySelector(".message-text");
+        const messageText = lastUserMessage.querySelector('.message-text');
         if (!messageText) {
             console.error('No message text element found');
             return;
         }
 
         const userMessage = messageText.textContent;
-        const elementIndex = Array.from(responseElement.parentElement.children).indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
 
-        // Show loading state on refresh button
+        // Show loading state
         const refreshBtn = responseElement.querySelector('.btn-refresh');
-        if (!refreshBtn) {
-            console.error('No refresh button found');
-            return;
-        }
+        if (!refreshBtn) return;
 
         const originalContent = refreshBtn.innerHTML;
         refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         refreshBtn.disabled = true;
 
         try {
-            // Remove this response and all messages after it
-            const messagesToRemove = Array.from(responseElement.parentElement.children)
-                .slice(elementIndex);
+            // Remove this response and subsequent messages
+            const messagesToRemove = messages.slice(elementIndex);
             messagesToRemove.forEach(msg => msg.remove());
 
             // Update chat history
-            chat.content = chat.content.slice(0, elementIndex);
-            await db.chats.put(chat);
+            if (chat) {
+                chat.content = chat.content.slice(0, elementIndex);
+                await db.chats.put(chat);
+            }
             
             // Generate new response
             await send(userMessage, db);
+            
         } catch (error) {
-            console.error('Failed to regenerate response:', error);
+            console.error('Failed to regenerate:', error);
+            ErrorService.showError('Failed to regenerate response', 'error');
             throw error;
         } finally {
-            // Reset refresh button state
+            // Reset button state
             refreshBtn.innerHTML = originalContent;
             refreshBtn.disabled = false;
         }
 
     } catch (error) {
-        console.error('Error regenerating message:', error);
-        ErrorService.showError('Failed to regenerate response. Please try again.', 'error');
-        throw error;
+        console.error('Regenerate error:', error);
+        ErrorService.showError('Failed to regenerate response', 'error');
     }
 }
 
@@ -134,31 +138,9 @@ export async function send(msg, db) {
         sendButton.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         messageInput.setAttribute('contenteditable', 'false');
 
-        // Reduced artificial delay from 1000ms to 500ms
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
         const remaining = await chatLimitService.getRemainingChats();
         if (remaining <= 0) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'custom-alert';
-            alertDiv.innerHTML = `
-                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5a/Wormgpt.svg" alt="WormGPT">
-                <h3>Daily Limit Reached</h3>
-                <p>You have reached your daily message limit. Please try again tomorrow or upgrade your key for unlimited access.</p>
-                <button onclick="this.parentElement.remove()" class="alert-button">Got it</button>
-            `;
-            document.body.appendChild(alertDiv);
-            
-            // Add fade-in animation
-            requestAnimationFrame(() => {
-                alertDiv.style.opacity = '0';
-                alertDiv.style.transform = 'translate(-50%, -48%)';
-                requestAnimationFrame(() => {
-                    alertDiv.style.opacity = '1';
-                    alertDiv.style.transform = 'translate(-50%, -50%)';
-                });
-            });
-            
+            showLimitReachedAlert();
             throw new Error('Chat limit reached');
         }
 
@@ -167,9 +149,10 @@ export async function send(msg, db) {
 
         const selectedPersonality = await personalityService.getSelected();
         if (!selectedPersonality) {
+            ErrorService.showError('No personality selected', 'error');
             return;
         }
-        
+
         const settings = settingsService.getSettings();
         if (!settings.apiKey || !msg) {
             return;
@@ -183,74 +166,66 @@ export async function send(msg, db) {
         // First create and show user message
         await insertMessage("user", msg);
 
+        // Handle chat creation with retry
         if (!await chatsService.getCurrentChat(db)) {
-            const result = await generativeModel.generateContent('Please generate a short title for the following request from a user, only reply with the short title, nothing else: ' + msg);
-            const title = result.response.text();
-            const id = await chatsService.addChat(title, msg, db); // Pass the first message
-            document.querySelector(`#chat${id}`).click();
+            try {
+                const result = await generativeModel.generateContent('Please generate a short title for the following request from a user, only reply with the short title, nothing else: ' + msg);
+                const title = result.response.text();
+                const id = await chatsService.addChat(title, msg, db);
+                document.querySelector(`#chat${id}`).click();
+            } catch (error) {
+                ErrorService.showError('Failed to create chat. Retrying...', 'warning');
+                return;
+            }
         }
 
-        const chat = generativeModel.startChat({
-            generationConfig: {
-                maxOutputTokens: settings.maxTokens,
-                temperature: settings.temperature / 100
-            },
-            safetySettings: settings.safetySettings,
-            history: [
-                {
-                    role: "user",
-                    parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }]
-                },
-                {
-                    role: "model", 
-                    parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }]
-                },
-                ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
-                    return { role: "model", parts: [{ text: tone }] }
-                }) : []),
-                ...(await chatsService.getCurrentChat(db)).content.map((msg) => {
-                    return { role: msg.role, parts: msg.parts }
-                })
-            ]
-        });
+        // Handle message stream with retry
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const chat = generativeModel.startChat({
+                    generationConfig: {
+                        maxOutputTokens: settings.maxTokens,
+                        temperature: settings.temperature / 100
+                    },
+                    safetySettings: settings.safetySettings,
+                    history: [
+                        {
+                            role: "user",
+                            parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }]
+                        },
+                        {
+                            role: "model",
+                            parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }]
+                        },
+                        ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
+                            return { role: "model", parts: [{ text: tone }] }
+                        }) : []),
+                        ...(await chatsService.getCurrentChat(db)).content.map((msg) => {
+                            return { role: msg.role, parts: msg.parts }
+                        })
+                    ]
+                });
 
-        try {
-            const result = await chat.sendMessage(msg);
-            const response = await result.response;
-            const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
-            const messageText = messageElement.querySelector('.message-text');
-            
-            const text = response.text();
-            messageText.innerHTML = marked.parse(text);
-            helpers.messageContainerScrollToBottom();
-
-            // Save both messages in chat history
-            const currentChat = await chatsService.getCurrentChat(db);
-            if (!currentChat.content.some(m => m.role === "user" && m.parts[0].text === msg)) {
-                currentChat.content.push({ role: "user", parts: [{ text: msg }] });
+                const result = await chat.sendMessage(msg);
+                const response = await result.response;
+                const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
+                const messageText = messageElement.querySelector('.message-text');
+                
+                const text = response.text();
+                messageText.innerHTML = marked.parse(text);
+                helpers.messageContainerScrollToBottom();
+                
+                // Success - break the retry loop
+                break;
+            } catch (error) {
+                retries--;
+                if (retries === 0) {
+                    throw error;
+                }
+                ErrorService.showError(`Retrying... ${retries} attempts left`, 'warning');
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
-            currentChat.content.push({ 
-                role: "model", 
-                personality: selectedPersonality.name, 
-                parts: [{ text: text }] 
-            });
-            await db.chats.put(currentChat);
-
-            const refreshBtn = messageElement.querySelector('.btn-refresh');
-            if (refreshBtn) {
-                refreshBtn.onclick = async () => {
-                    await regenerate(messageElement, db); // Pass db here
-                };
-            }
-        } catch (error) {
-            console.error('Error in chat response:', error);
-            throw error;
-        } finally {
-            // Re-enable send button and message input
-            sendButton.disabled = false;
-            sendButton.innerHTML = originalContent;
-            messageInput.setAttribute('contenteditable', 'true');
-            messageInput.focus();
         }
 
     } catch (error) {
@@ -258,11 +233,12 @@ export async function send(msg, db) {
         if (error.message !== 'Chat limit reached') {
             ErrorService.showError('Failed to send message. Please try again.', 'error');
         }
-        // Re-enable controls even if there's an error
+    } finally {
+        // Re-enable controls
         sendButton.disabled = false;
-        sendButton.innerHTML = 'send';
+        sendButton.innerHTML = originalContent;
         messageInput.setAttribute('contenteditable', 'true');
-        throw error;
+        messageInput.focus();
     }
 }
 
