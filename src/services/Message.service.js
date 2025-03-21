@@ -19,11 +19,24 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.innerHTML = `
             <div class="message-header">
                 <h3 class="message-role">${messageRole}</h3>
-                <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+                <button class="btn-refresh btn-textual material-symbols-outlined" title="Regenerate response">
+                    refresh
+                </button>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
         `;
+        // Add click handler for refresh button
+        const refreshBtn = newMessage.querySelector('.btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.onclick = async () => {
+                try {
+                    await regenerate(newMessage, db);
+                } catch (error) {
+                    console.error('Regeneration failed:', error);
+                }
+            };
+        }
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
@@ -52,23 +65,41 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     return newMessage;
 }
 
-export async function regenerate(responseElement, db) { // Add db parameter
+export async function regenerate(responseElement, db) {
     try {
-        // Get the user's message that generated this response
-        const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
-        const chat = await chatsService.getCurrentChat(db); // Pass db here
+        // Show loading state
+        const refreshBtn = responseElement.querySelector('.btn-refresh');
+        const originalContent = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
+        refreshBtn.disabled = true;
 
-        // Remove messages after the one we're regenerating
-        chat.content = chat.content.slice(0, elementIndex - 1);
+        // Get the user's message that generated this response
+        const userMessage = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        const chat = await chatsService.getCurrentChat(db);
+
+        // Remove current and subsequent messages
+        chat.content = chat.content.slice(0, elementIndex);
         await db.chats.put(chat);
-        
-        // Reload chat and generate new response
-        await chatsService.loadChat(chat.id, db); // Pass db here
-        await send(message, db); // Pass db here
+
+        // Remove messages from UI
+        while (responseElement.nextElementSibling) {
+            responseElement.nextElementSibling.remove();
+        }
+        responseElement.remove();
+
+        // Regenerate response
+        await send(userMessage, db);
+
     } catch (error) {
         console.error('Error regenerating message:', error);
-        throw error;
+        ErrorService.showError('Failed to regenerate message. Please try again.', 'error');
+        
+        // Reset button state
+        if (refreshBtn) {
+            refreshBtn.innerHTML = originalContent;
+            refreshBtn.disabled = false;
+        }
     }
 }
 
