@@ -67,40 +67,58 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     try {
-        // Get the user's message that generated this response
-        const userMessage = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        // Check if previous message exists before accessing it
+        const previousMessage = responseElement.previousElementSibling;
+        if (!previousMessage) {
+            console.error('No previous message found to regenerate');
+            return;
+        }
+
+        const messageText = previousMessage.querySelector(".message-text");
+        if (!messageText) {
+            console.error('No message text element found');
+            return;
+        }
+
+        const userMessage = messageText.textContent;
         const elementIndex = Array.from(responseElement.parentElement.children).indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
 
         // Show loading state on refresh button
         const refreshBtn = responseElement.querySelector('.btn-refresh');
+        if (!refreshBtn) {
+            console.error('No refresh button found');
+            return;
+        }
+
         const originalContent = refreshBtn.innerHTML;
         refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         refreshBtn.disabled = true;
 
-        // Remove this response and all messages after it
-        const messagesToRemove = Array.from(responseElement.parentElement.children)
-            .slice(elementIndex);
-        messagesToRemove.forEach(msg => msg.remove());
+        try {
+            // Remove this response and all messages after it
+            const messagesToRemove = Array.from(responseElement.parentElement.children)
+                .slice(elementIndex);
+            messagesToRemove.forEach(msg => msg.remove());
 
-        // Update chat history
-        chat.content = chat.content.slice(0, elementIndex);
-        await db.chats.put(chat);
-        
-        // Generate new response
-        await send(userMessage, db);
-
-        // Cleanup
-        refreshBtn.innerHTML = originalContent;
-        refreshBtn.disabled = false;
+            // Update chat history
+            chat.content = chat.content.slice(0, elementIndex);
+            await db.chats.put(chat);
+            
+            // Generate new response
+            await send(userMessage, db);
+        } catch (error) {
+            console.error('Failed to regenerate response:', error);
+            throw error;
+        } finally {
+            // Reset refresh button state
+            refreshBtn.innerHTML = originalContent;
+            refreshBtn.disabled = false;
+        }
 
     } catch (error) {
         console.error('Error regenerating message:', error);
         ErrorService.showError('Failed to regenerate response. Please try again.', 'error');
-        // Reset refresh button
-        const refreshBtn = responseElement.querySelector('.btn-refresh');
-        refreshBtn.innerHTML = 'refresh';
-        refreshBtn.disabled = false;
         throw error;
     }
 }
