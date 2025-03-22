@@ -23,20 +23,21 @@ logging.basicConfig(
 
 load_dotenv()
 
-# Get SECRET_KEY from environment or use default
-SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
+# Update the configuration section at the top
+MONGODB_URI = "mongodb+srv://wormgpt_admin:iwontgiveup@cluster0.o6pjf.mongodb.net/wormgpt?retryWrites=true&w=majority&appName=Cluster0"
+SECRET_KEY = "wormgpt_secret_key_2024"  # Hardcoded secret key
+PORT = 10000  # Hardcoded port
+BASE_URL = "http://localhost:10000"  # Use local URL instead of render URL
 
 app = Flask(__name__)
 CORS(app)
 
 def setup_mongodb():
     try:
-        MONGO_URI = os.getenv('MONGODB_URI')
-        if not MONGO_URI:
-            MONGO_URI = "mongodb+srv://wormgpt_admin:iwontgiveup@cluster0.o6pjf.mongodb.net/wormgpt?retryWrites=true&w=majority&appName=Cluster0"
-        
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        # Test connection
+        client = MongoClient(MONGODB_URI, 
+                           serverSelectionTimeoutMS=5000,
+                           connectTimeoutMS=5000,
+                           socketTimeoutMS=5000)
         client.admin.command('ping')
         db = client.wormgpt
         keys_collection = db.keys
@@ -164,18 +165,22 @@ def validate_key():
             'message': 'Server error'
         })
 
-# Add keep-alive configuration
-KEEP_ALIVE_URL = "https://wormgpt-api.onrender.com/health"
-KEEP_ALIVE_INTERVAL = 600  # 10 minutes
+# Update keep-alive configuration
+KEEP_ALIVE_URL = f"{BASE_URL}/health"  # Use local URL
+KEEP_ALIVE_INTERVAL = 60  # Reduce interval to 1 minute for better uptime
 
 def keep_alive():
     """Send periodic requests to keep the server alive"""
     while True:
         try:
-            response = requests.get(KEEP_ALIVE_URL)
-            logging.info(f"Keep-alive ping status: {response.status_code}")
+            response = requests.get(KEEP_ALIVE_URL, timeout=5)  # Add timeout
+            if response.status_code == 200:
+                logging.info("Keep-alive ping successful")
+            else:
+                logging.warning(f"Keep-alive ping returned status: {response.status_code}")
         except Exception as e:
             logging.error(f"Keep-alive error: {str(e)}")
+            # Don't stop the thread on error
         time.sleep(KEEP_ALIVE_INTERVAL)
 
 # Start keep-alive thread after MongoDB setup
@@ -204,16 +209,15 @@ def health_check():
 
 if __name__ == '__main__':
     try:
-        port = int(os.environ.get("PORT", 8080))
-        logging.info(f"Starting server on port {port}")
+        logging.info(f"Starting server on port {PORT}")
         
         # Start keep-alive service
         start_keep_alive()
         
         app.run(
             host='0.0.0.0', 
-            port=port,
-            use_reloader=True,
+            port=PORT,
+            use_reloader=False,  # Disable reloader to prevent duplicate threads
             threaded=True
         )
     except Exception as e:
@@ -221,5 +225,6 @@ if __name__ == '__main__':
         client.close()
         sys.exit(1)
 else:
+    # In production (Gunicorn)
     keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
     keep_alive_thread.start()
