@@ -6,6 +6,7 @@ class KeyValidationService {
         this.STORAGE_KEY = 'wormgpt_access_key';
         this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production URL
         this.SESSION_KEY = 'validated';
+        this.VALIDATION_STATE_KEY = 'key_validation_state'; // Add new state key
     }
 
     validateKeyFormat(key) {
@@ -47,12 +48,20 @@ class KeyValidationService {
             console.log('Server response:', data);
 
             if (data.valid) {
-                await this.saveKeyToDatabase({
+                const validationState = {
                     key: key.toUpperCase(),
                     expiryTime: data.expiryTime,
                     type: data.type,
-                    activatedAt: new Date().toISOString()
-                });
+                    activatedAt: new Date().toISOString(),
+                    isValid: true,
+                    lastVerified: new Date().toISOString() // Add this to track last verification
+                };
+                
+                // Save complete validation state
+                await this.saveKeyToDatabase(validationState);
+                sessionStorage.setItem(this.SESSION_KEY, 'true');
+                localStorage.setItem(this.SESSION_KEY, 'true');
+                localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
             }
             
             return data;
@@ -87,25 +96,34 @@ class KeyValidationService {
 
     async isKeyValid() {
         try {
-            // Check session first
+            // Check session first for performance
             if (sessionStorage.getItem(this.SESSION_KEY) === 'true') {
                 return true;
             }
 
-            const keyData = await this.getKeyData();
-            if (!keyData) return false;
-
-            const now = new Date();
-            const expiryTime = new Date(keyData.expiryTime);
-            const isValid = now < expiryTime;
-
-            if (isValid) {
-                sessionStorage.setItem(this.SESSION_KEY, 'true');
+            // Then check validation state
+            const validationState = localStorage.getItem(this.VALIDATION_STATE_KEY);
+            if (validationState) {
+                const state = JSON.parse(validationState);
+                const now = new Date();
+                const expiryTime = new Date(state.expiryTime);
+                
+                if (now < expiryTime) {
+                    // Set both storages if valid
+                    sessionStorage.setItem(this.SESSION_KEY, 'true');
+                    localStorage.setItem(this.SESSION_KEY, 'true');
+                    return true;
+                } else {
+                    // Clear invalid state
+                    this.clearValidation();
+                    return false;
+                }
             }
 
-            return isValid;
+            return false;
         } catch (error) {
             console.error('Error checking key validity:', error);
+            this.clearValidation(); // Clear on error
             return false;
         }
     }
@@ -122,6 +140,13 @@ class KeyValidationService {
             hours: Math.floor(diff / (1000 * 60 * 60)),
             minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
         };
+    }
+
+    clearValidation() {
+        sessionStorage.removeItem(this.SESSION_KEY);
+        localStorage.removeItem(this.SESSION_KEY);
+        localStorage.removeItem(this.STORAGE_KEY);
+        localStorage.removeItem(this.VALIDATION_STATE_KEY);
     }
 }
 
