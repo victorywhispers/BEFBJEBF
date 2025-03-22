@@ -1,7 +1,7 @@
 export class ChatLimitService {
     constructor() {
         this.storageKey = 'chat_limits';
-        this.processingMessage = false; // Add this flag
+        this.processingMessage = false;
     }
 
     async initializeChatLimit() {
@@ -45,7 +45,7 @@ export class ChatLimitService {
     }
 
     async decrementChatLimit() {
-        // Only decrement if not currently processing a message
+        // Prevent multiple decrements for the same message
         if (this.processingMessage) {
             return await this.getRemainingChats();
         }
@@ -60,7 +60,7 @@ export class ChatLimitService {
             }
             return limits ? limits.remaining : 0;
         } finally {
-            // Reset the flag after processing
+            // Reset the processing flag after a delay
             setTimeout(() => {
                 this.processingMessage = false;
             }, 1000);
