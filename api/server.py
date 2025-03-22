@@ -220,3 +220,6 @@ if __name__ == '__main__':
         logging.error(f"Server error: {str(e)}")
         client.close()
         sys.exit(1)
+else:
+    keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
+    keep_alive_thread.start()
