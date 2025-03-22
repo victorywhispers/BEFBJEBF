@@ -18,12 +18,10 @@ services:
     name: wormgpt-api
     env: python
     buildCommand: pip install -r api/requirements.txt
-    startCommand: cd api && gunicorn server:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --keep-alive 5 --access-logfile - --error-logfile - --log-level info
+    startCommand: cd api && gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 0 --keep-alive 5 --access-logfile - --error-logfile - --log-level info
     envVars:
       - key: MONGODB_URI
         value: "mongodb+srv://wormgpt_admin:iwontgiveup@cluster0.o6pjf.mongodb.net/wormgpt?retryWrites=true&w=majority&appName=Cluster0"
-      - key: PORT
-        value: 8000
 
   # Telegram Bot Service
   - type: web
