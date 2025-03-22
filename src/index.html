@@ -283,7 +283,60 @@
     </div>
 
     <script type="module" src="main.js"></script>
+    <script type="module">
+        import { tasksService } from './services/Tasks.service.js';
 
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if task is already completed
+            if (tasksService.isTaskCompleted('task1')) {
+                const taskCard = document.getElementById('task1');
+                if (taskCard) {
+                    taskCard.style.display = 'none';
+                }
+            }
+
+            const task1Button = document.getElementById('task1-button');
+            const timerDiv = document.querySelector('.task-timer');
+            
+            if (task1Button) {
+                task1Button.addEventListener('click', () => {
+                    timerDiv.classList.remove('hidden');
+                    let timeLeft = 120;
+                    const timerSpan = document.getElementById('task1-timer');
+                    
+                    const timer = setInterval(async () => {
+                        timeLeft--;
+                        if (timerSpan) timerSpan.textContent = timeLeft;
+                        
+                        if (timeLeft <= 0) {
+                            clearInterval(timer);
+                            // Complete task and update UI
+                            const taskContent = document.querySelector('#task1 .task-content');
+                            if (taskContent) {
+                                taskContent.innerHTML = `
+                                    <div class="task-success">
+                                        <span class="material-symbols-outlined">check_circle</span>
+                                        Task completed! 20 bonus messages added to your account
+                                    </div>
+                                `;
+                            }
+                            
+                            await tasksService.completeTask('task1');
+                            
+                            // Hide task card after completion
+                            setTimeout(() => {
+                                const taskCard = document.getElementById('task1');
+                                if (taskCard) {
+                                    taskCard.classList.add('completed');
+                                    taskCard.style.display = 'none';
+                                }
+                            }, 3000);
+                        }
+                    }, 1000);
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>
