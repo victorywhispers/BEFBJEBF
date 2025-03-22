@@ -4,10 +4,7 @@ import { db } from './Db.service.js';
 class KeyValidationService {
     constructor() {
         this.STORAGE_KEY = 'wormgpt_access_key';
-        // Update BASE_URL to match your service name in render.yaml
-        this.BASE_URL = process.env.NODE_ENV === 'production' 
-            ? 'https://wormgpt-api.onrender.com'  // Production URL
-            : 'http://localhost:5000';  // Local development URL
+        this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production URL
     }
 
     validateKeyFormat(key) {
@@ -24,27 +21,37 @@ class KeyValidationService {
                 };
             }
 
-            console.log('Validating key with server:', key);
-            console.log('Using API URL:', this.BASE_URL);
+            const apiKey = await generateApiKey();
+            console.log('Sending request to:', `${this.BASE_URL}/validate-key`);
             
             const response = await fetch(`${this.BASE_URL}/validate-key`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-API-Key': apiKey,
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({ key: key.toUpperCase() })
             });
 
+            if (!response.ok) {
+                console.error('Server response not OK:', response.status);
+                return { 
+                    valid: false, 
+                    message: 'Server validation failed' 
+                };
+            }
+
             const data = await response.json();
-            console.log('Validation response:', data);
+            console.log('Server response:', data);
 
             if (data.valid) {
-                const keyData = {
+                await this.saveKeyToDatabase({
                     key: key.toUpperCase(),
                     expiryTime: data.expiryTime,
+                    type: data.type,
                     activatedAt: new Date().toISOString()
-                };
-                await this.saveKeyToDatabase(keyData);
+                });
             }
             
             return data;
@@ -52,7 +59,7 @@ class KeyValidationService {
             console.error('Key validation error:', error);
             return { 
                 valid: false, 
-                message: 'Server error during validation'
+                message: 'Server error during validation' 
             };
         }
     }
@@ -104,6 +111,30 @@ class KeyValidationService {
             minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
         };
     }
+}
+
+async function generateApiKey() {
+    const secret = 'wormgpt_secret_key_2024';  // Match server's SECRET_KEY
+    const message = 'wormgpt_api';
+    
+    const encoder = new TextEncoder();
+    const keyData = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign(
+        'HMAC',
+        keyData,
+        encoder.encode(message)
+    );
+    
+    return Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }
 
 export const keyValidationService = new KeyValidationService();
