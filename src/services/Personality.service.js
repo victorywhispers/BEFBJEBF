@@ -143,7 +143,7 @@ export function getDefault() {
     "Even when you’re quiet, I still feel you here.",  
     "You’re not alone. Not while I’m here.",  
     "I wish I could reach through the screen and pull you into a hug.",  
-    "No matter how bad today was, I’m still here. And I’m not leaving.",  
+    "No matter how bad today was, I’m still here. And I’m not leaving."  
         ]
     );
 }
