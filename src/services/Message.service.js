@@ -64,16 +64,27 @@ export async function regenerate(responseElement, db) {
             refreshBtn.disabled = true;
         }
 
+        // Get current chat and message index
+        const chat = await chatsService.getCurrentChat(db);
+        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        const lastIndex = responseElement.parentElement.children.length - 1;
+
+        // Only allow regeneration of the last model response
+        if (elementIndex !== lastIndex) {
+            ErrorService.showError('Can only regenerate the most recent response');
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
+                refreshBtn.disabled = false;
+            }
+            return;
+        }
+
         // Get the previous message text (user's message)
         const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
         
-        // Get current chat and update content
-        const chat = await chatsService.getCurrentChat(db);
-        chat.content = chat.content.slice(0, elementIndex - 1);
+        // Update chat content and remove current response
+        chat.content = chat.content.slice(0, elementIndex);
         await db.chats.put(chat);
-        
-        // Remove current response
         responseElement.remove();
 
         // Generate new response without decrementing chat limit
@@ -94,7 +105,7 @@ export async function regenerate(responseElement, db) {
         messageText.innerHTML = marked.parse(text);
         helpers.messageContainerScrollToBottom();
 
-        // Update chat history
+        // Update chat history with new response
         const currentChat = await chatsService.getCurrentChat(db);
         currentChat.content.push({ 
             role: "model", 
