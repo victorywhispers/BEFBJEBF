@@ -38,7 +38,6 @@ export class ChatInput {
     async checkKeyValidity() {
         const webAppData = window.Telegram?.WebApp?.initData;
         if (!webAppData) {
-            ErrorService.showError('Must be opened through Telegram WebApp');
             return false;
         }
 
