@@ -96,34 +96,22 @@ class KeyValidationService {
 
     async isKeyValid() {
         try {
-            // Check session first for performance
-            if (sessionStorage.getItem(this.SESSION_KEY) === 'true') {
-                return true;
+            const keyData = await this.getKeyData();
+            if (!keyData) return false;
+
+            const now = new Date();
+            const expiryTime = new Date(keyData.expiryTime);
+
+            // Strict expiry check and clear validation if expired
+            if (now >= expiryTime) {
+                this.clearValidation();
+                return false;
             }
 
-            // Then check validation state
-            const validationState = localStorage.getItem(this.VALIDATION_STATE_KEY);
-            if (validationState) {
-                const state = JSON.parse(validationState);
-                const now = new Date();
-                const expiryTime = new Date(state.expiryTime);
-                
-                if (now < expiryTime) {
-                    // Set both storages if valid
-                    sessionStorage.setItem(this.SESSION_KEY, 'true');
-                    localStorage.setItem(this.SESSION_KEY, 'true');
-                    return true;
-                } else {
-                    // Clear invalid state
-                    this.clearValidation();
-                    return false;
-                }
-            }
-
-            return false;
+            return true;
         } catch (error) {
             console.error('Error checking key validity:', error);
-            this.clearValidation(); // Clear on error
+            this.clearValidation();
             return false;
         }
     }
@@ -136,9 +124,15 @@ class KeyValidationService {
         const expiryTime = new Date(keyData.expiryTime);
         const diff = expiryTime - now;
 
+        // If expired or negative time, clear validation
+        if (diff <= 0) {
+            this.clearValidation();
+            return null;
+        }
+
         return {
-            hours: Math.floor(diff / (1000 * 60 * 60)),
-            minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+            hours: Math.max(0, Math.floor(diff / (1000 * 60 * 60))),
+            minutes: Math.max(0, Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)))
         };
     }
 
@@ -147,6 +141,10 @@ class KeyValidationService {
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.STORAGE_KEY);
         localStorage.removeItem(this.VALIDATION_STATE_KEY);
+        // Force redirect to validation page if currently in chat
+        if (window.location.pathname !== '/validation.html') {
+            window.location.replace('./validation.html');
+        }
     }
 }
 
