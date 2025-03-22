@@ -56,24 +56,81 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 }
 
 export async function regenerate(responseElement, db) {
+    let refreshBtn = null;
     try {
-        //Get and store refresh button first
-        const refreshBtn = responseElement.querySelector('.btn-refresh');
+        // Get and store refresh button first
+        refreshBtn = responseElement.querySelector('.btn-refresh');
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
             refreshBtn.disabled = true;
         }
 
-        //Get previous message and content
+        // Get message and current personality
         const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        const selectedPersonality = await personalityService.getSelected();
+        if (!selectedPersonality) {
+            throw new Error('No personality selected');
+        }
+
+        const settings = settingsService.getSettings();
+        if (!settings.apiKey || !message) {
+            throw new Error('Missing API key or message');
+        }
+
+        // Setup model with same personality context
+        const generativeModel = new GoogleGenerativeAI(settings.apiKey).getGenerativeModel({
+            model: settings.model,
+            systemInstruction: settingsService.getSystemPrompt()
+        });
+
+        // Update chat history
         const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
-
-        // Update chat content and cleanup UI
-        chat.content = chat.content.slice(0, elementIndex - 1);
+        chat.content = chat.content.slice(0, elementIndex);
         await db.chats.put(chat);
-        await chatsService.loadChat(chat.id, db);
-        await send(message, db);
+
+        // Remove old response
+        responseElement.remove();
+
+        // Generate new response with same personality context
+        const chatContext = generativeModel.startChat({
+            generationConfig: {
+                maxOutputTokens: settings.maxTokens,
+                temperature: settings.temperature / 100
+            },
+            safetySettings: settings.safetySettings,
+            history: [
+                {
+                    role: "user",
+                    parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }]
+                },
+                {
+                    role: "model",
+                    parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }]
+                },
+                ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
+                    return { role: "model", parts: [{ text: tone }] }
+                }) : []),
+                ...chat.content
+            ]
+        });
+
+        const result = await chatContext.sendMessage(message);
+        const response = await result.response;
+        const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
+        const messageText = messageElement.querySelector('.message-text');
+        
+        const text = response.text();
+        messageText.innerHTML = marked.parse(text);
+        helpers.messageContainerScrollToBottom();
+
+        // Update chat history
+        chat.content.push({ 
+            role: "model", 
+            personality: selectedPersonality.name, 
+            parts: [{ text: text }] 
+        });
+        await db.chats.put(chat);
 
     } catch (error) {
         console.error('Error regenerating message:', error);
