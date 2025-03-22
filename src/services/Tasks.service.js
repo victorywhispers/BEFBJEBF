@@ -28,13 +28,26 @@ export class TasksService {
         const current = this.getBonusMessages();
         const newTotal = current + count;
         localStorage.setItem(this.BONUS_STORAGE_KEY, newTotal.toString());
-        
-        // Update display immediately
-        const bonusElement = document.getElementById('bonus-messages-count');
-        if (bonusElement) {
-            bonusElement.textContent = `${newTotal} bonus messages`;
-        }
+        this.updateBonusDisplay();
         return newTotal;
+    }
+
+    useBonusMessage() {
+        const current = this.getBonusMessages();
+        if (current > 0) {
+            localStorage.setItem(this.BONUS_STORAGE_KEY, (current - 1).toString());
+            this.updateBonusDisplay();
+            return true;
+        }
+        return false;
+    }
+
+    updateBonusDisplay() {
+        const bonusElement = document.getElementById('bonus-messages-count');
+        const current = this.getBonusMessages();
+        if (bonusElement) {
+            bonusElement.textContent = `${current} bonus messages`;
+        }
     }
 
     async completeTask(taskId) {
@@ -49,24 +62,12 @@ export class TasksService {
         };
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(tasks));
 
-        // Add bonus messages for task1
         if (taskId === 'task1') {
             this.addBonusMessages(20);
             const taskCard = document.getElementById(taskId);
             if (taskCard) {
-                const taskContent = taskCard.querySelector('.task-content');
-                if (taskContent) {
-                    taskContent.innerHTML = `
-                        <div class="task-success">
-                            <span class="material-symbols-outlined">check_circle</span>
-                            Task completed! 20 bonus messages added to your account
-                        </div>
-                    `;
-                }
-                // Hide task after delay
-                setTimeout(() => {
-                    taskCard.style.display = 'none';
-                }, 3000);
+                taskCard.classList.add('completed');
+                taskCard.style.display = 'none'; // Permanently hide
             }
             return true;
         }
