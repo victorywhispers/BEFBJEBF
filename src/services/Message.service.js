@@ -57,6 +57,13 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     try {
+        // Get and validate elements
+        const refreshBtn = responseElement.querySelector('.btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
+            refreshBtn.disabled = true;
+        }
+
         // Get the previous message text (user's message)
         const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
         const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
@@ -66,12 +73,46 @@ export async function regenerate(responseElement, db) {
         chat.content = chat.content.slice(0, elementIndex - 1);
         await db.chats.put(chat);
         
-        // Reload chat and generate new response
-        await chatsService.loadChat(chat.id, db);
-        await send(message, db);
+        // Remove current response
+        responseElement.remove();
+
+        // Generate new response without decrementing chat limit
+        const settings = settingsService.getSettings();
+        const selectedPersonality = await personalityService.getSelected();
+        
+        const generativeModel = new GoogleGenerativeAI(settings.apiKey).getGenerativeModel({
+            model: settings.model,
+            systemInstruction: settingsService.getSystemPrompt()
+        });
+
+        const result = await generativeModel.generateContent(message);
+        const response = await result.response;
+        const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
+        const messageText = messageElement.querySelector('.message-text');
+        
+        const text = response.text();
+        messageText.innerHTML = marked.parse(text);
+        helpers.messageContainerScrollToBottom();
+
+        // Update chat history
+        const currentChat = await chatsService.getCurrentChat(db);
+        currentChat.content.push({ 
+            role: "model", 
+            personality: selectedPersonality.name, 
+            parts: [{ text: text }] 
+        });
+        await db.chats.put(currentChat);
+
     } catch (error) {
         console.error('Error regenerating message:', error);
         ErrorService.showError('Failed to regenerate response. Please try again.');
+        
+        // Reset refresh button if it exists
+        const refreshBtn = responseElement?.querySelector('.btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
+            refreshBtn.disabled = false;
+        }
     }
 }
 
