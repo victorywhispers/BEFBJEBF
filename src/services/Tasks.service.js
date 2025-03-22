@@ -19,6 +19,25 @@ export class TasksService {
         return tasks[taskId]?.completed || false;
     }
 
+    async completeTask(taskId) {
+        const tasks = this.getTasks();
+        if (tasks[taskId]?.completed) {
+            return false;
+        }
+
+        tasks[taskId] = {
+            completed: true,
+            completedAt: new Date().toISOString()
+        };
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(tasks));
+
+        if (taskId === 'task1') {
+            this.addBonusMessages(20);
+            return true;
+        }
+        return false;
+    }
+
     getBonusMessages() {
         const bonus = localStorage.getItem(this.BONUS_STORAGE_KEY);
         return parseInt(bonus || '0', 10);
@@ -44,34 +63,10 @@ export class TasksService {
 
     updateBonusDisplay() {
         const bonusElement = document.getElementById('bonus-messages-count');
-        const current = this.getBonusMessages();
         if (bonusElement) {
+            const current = this.getBonusMessages();
             bonusElement.textContent = `${current} bonus messages`;
         }
-    }
-
-    async completeTask(taskId) {
-        const tasks = this.getTasks();
-        if (tasks[taskId]?.completed) {
-            return false;
-        }
-
-        tasks[taskId] = {
-            completed: true,
-            completedAt: new Date().toISOString()
-        };
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(tasks));
-
-        if (taskId === 'task1') {
-            this.addBonusMessages(20);
-            const taskCard = document.getElementById(taskId);
-            if (taskCard) {
-                taskCard.classList.add('completed');
-                taskCard.style.display = 'none'; // Permanently hide
-            }
-            return true;
-        }
-        return false;
     }
 }
 
