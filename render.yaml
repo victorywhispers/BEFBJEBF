@@ -12,6 +12,8 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://wormgpt-api.onrender.com
+      - key: VITE_API_KEY
+        value: "wormgpt_secret_key_2024"
 
   # Backend API
   - type: web
