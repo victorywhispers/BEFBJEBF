@@ -75,12 +75,10 @@ export class ChatInput {
             }
 
             this.messageInput.innerHTML = "";
-            
-            // Remove the decrement from here since it's handled in Message.service.js
             await messageService.send(message, dbService.db);
-            
-            // Just update the display with current count
-            this.remainingChats = await chatLimitService.getRemainingChats();
+
+            // Update the remaining chats count
+            this.remainingChats = await chatLimitService.decrementChatLimit();
             this.updateRemainingChatsDisplay();
         } catch (error) {
             console.error('Error sending message:', error);
