@@ -11,22 +11,20 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
-    messageContainer.append(newMessage);
-
+    
     if (sender !== "user") {
         newMessage.classList.add("message-model");
-        const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole}</h3>
+                <h3 class="message-role">${selectedPersonalityTitle || 'Assistant'}</h3>
                 <button class="btn-refresh btn-textual material-symbols-outlined" title="Regenerate response">
                     refresh
                 </button>
             </div>
-            <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>
         `;
-        // Add click handler for refresh button
+
+        // Add refresh button handler
         const refreshBtn = newMessage.querySelector('.btn-refresh');
         if (refreshBtn) {
             refreshBtn.onclick = async () => {
@@ -37,86 +35,68 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 }
             };
         }
+
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons(); // Add copy buttons after parsing markdown
+            helpers.addCopyButtons();
         }
-        return newMessage;
     } else {
-        const messageRole = "You:";
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${messageRole}</h3>
+                <h3 class="message-role">You:</h3>
             </div>
-            <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text">${helpers.getDecoded(msg)}</div>
         `;
     }
-    
-    newMessage.innerHTML = marked.parse(msg);
+
     messageContainer.appendChild(newMessage);
-    
-    // Add this line to ensure copy buttons are added immediately
-    helpers.addCopyButtons();
-    
     helpers.messageContainerScrollToBottom();
-    
     return newMessage;
 }
 
 export async function regenerate(responseElement, db) {
     let refreshBtn = null;
     try {
-        // Verify response element exists
-        if (!responseElement) {
-            throw new Error('Response element not found');
+        // Get message elements
+        const messageContainer = document.querySelector('.message-container');
+        if (!messageContainer) {
+            throw new Error('Message container not found');
         }
 
-        // Get and store refresh button first
+        const messages = Array.from(messageContainer.children);
+        const currentIndex = messages.indexOf(responseElement);
+        const userMessageElement = messages[currentIndex - 1];
+
+        if (!userMessageElement || !userMessageElement.classList.contains('message')) {
+            throw new Error('User message not found');
+        }
+
+        // Get and setup refresh button
         refreshBtn = responseElement.querySelector('.btn-refresh');
-        if (!refreshBtn) {
-            throw new Error('Refresh button not found');
-        }
-
-        // Store original content and update UI
-        const originalContent = refreshBtn.innerHTML;
-        refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
-        refreshBtn.disabled = true;
-
-        // Get previous message element (user message)
-        const previousElement = responseElement.previousElementSibling;
-        if (!previousElement) {
-            throw new Error('Previous user message not found');
-        }
-
-        // Find message text within correct div structure
-        const messageText = previousElement.querySelector('.message-text');
-        if (!messageText) {
-            throw new Error('Message text element not found in user message');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
+            refreshBtn.disabled = true;
         }
 
         // Get user message content
-        const userMessage = messageText.textContent || messageText.innerText;
-        if (!userMessage || userMessage.trim().length === 0) {
+        const messageText = userMessageElement.querySelector('.message-text');
+        const userMessage = messageText ? messageText.textContent.trim() : '';
+        
+        if (!userMessage) {
             throw new Error('No message content found');
         }
 
-        // Get chat index and update DB
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        // Update chat history
         const chat = await chatsService.getCurrentChat(db);
-        
-        // Update chat content and save
-        if (chat && chat.content) {
-            chat.content = chat.content.slice(0, elementIndex);
+        if (chat?.content) {
+            chat.content = chat.content.slice(0, currentIndex);
             await db.chats.put(chat);
         }
 
-        // Remove subsequent messages and current message
-        while (responseElement.nextElementSibling) {
-            responseElement.nextElementSibling.remove();
-        }
-        responseElement.remove();
+        // Remove current and subsequent messages
+        const toRemove = messages.slice(currentIndex);
+        toRemove.forEach(msg => msg.remove());
 
         // Generate new response
         await send(userMessage, db);
