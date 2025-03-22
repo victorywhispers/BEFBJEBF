@@ -26,8 +26,8 @@ load_dotenv()
 # Update the configuration section at the top
 MONGODB_URI = "mongodb+srv://wormgpt_admin:iwontgiveup@cluster0.o6pjf.mongodb.net/wormgpt?retryWrites=true&w=majority&appName=Cluster0"
 SECRET_KEY = "wormgpt_secret_key_2024"  # Hardcoded secret key
-PORT = 10000  # Hardcoded port
-BASE_URL = "http://localhost:10000"  # Use local URL instead of render URL
+PORT = int(os.environ.get('PORT', 10000))
+BASE_URL = "https://wormgpt-api.onrender.com"  # Use the actual render URL
 
 app = Flask(__name__)
 CORS(app)
@@ -166,21 +166,27 @@ def validate_key():
         })
 
 # Update keep-alive configuration
-KEEP_ALIVE_URL = f"{BASE_URL}/health"  # Use local URL
-KEEP_ALIVE_INTERVAL = 60  # Reduce interval to 1 minute for better uptime
+KEEP_ALIVE_URL = f"{BASE_URL}/health"
+KEEP_ALIVE_INTERVAL = 60  # 1 minute interval
 
 def keep_alive():
     """Send periodic requests to keep the server alive"""
     while True:
         try:
-            response = requests.get(KEEP_ALIVE_URL, timeout=5)  # Add timeout
+            # Add headers and increase timeout
+            headers = {'User-Agent': 'WormGPT-KeepAlive/1.0'}
+            response = requests.get(
+                KEEP_ALIVE_URL, 
+                timeout=10,
+                headers=headers,
+                verify=True  # Ensure SSL verification
+            )
             if response.status_code == 200:
-                logging.info("Keep-alive ping successful")
+                logging.info(f"Keep-alive ping successful: {response.status_code}")
             else:
                 logging.warning(f"Keep-alive ping returned status: {response.status_code}")
         except Exception as e:
             logging.error(f"Keep-alive error: {str(e)}")
-            # Don't stop the thread on error
         time.sleep(KEEP_ALIVE_INTERVAL)
 
 # Start keep-alive thread after MongoDB setup
