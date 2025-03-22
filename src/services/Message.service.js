@@ -138,37 +138,18 @@ export async function send(msg, db) {
         sendButton.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         messageInput.setAttribute('contenteditable', 'false');
 
-        // Reduced artificial delay from 1000ms to 500ms
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        // Check remaining chats and decrement only once
         const remaining = await chatLimitService.getRemainingChats();
         if (remaining <= 0) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'custom-alert';
-            alertDiv.innerHTML = `
-                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5a/Wormgpt.svg" alt="WormGPT">
-                <h3>Daily Limit Reached</h3>
-                <p>You have reached your daily message limit. Please try again tomorrow or upgrade your key for unlimited access.</p>
-                <button onclick="this.parentElement.remove()" class="alert-button">Got it</button>
-            `;
-            document.body.appendChild(alertDiv);
-            
-            // Add fade-in animation
-            requestAnimationFrame(() => {
-                alertDiv.style.opacity = '0';
-                alertDiv.style.transform = 'translate(-50%, -48%)';
-                requestAnimationFrame(() => {
-                    alertDiv.style.opacity = '1';
-                    alertDiv.style.transform = 'translate(-50%, -50%)';
-                });
-            });
-            
+            showLimitReachedAlert();
             throw new Error('Chat limit reached');
         }
 
+        // Decrement chat limit once per message
         await chatLimitService.decrementChatLimit();
         await chatLimitService.updateDisplay();
 
+        // Rest of the send function...
         const selectedPersonality = await personalityService.getSelected();
         if (!selectedPersonality) {
             return;
