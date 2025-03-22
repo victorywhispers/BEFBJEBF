@@ -5,6 +5,17 @@ import { TermsAndConditions } from './components/Terms.component.js';
 
 class ValidationPage {
     constructor() {
+        // Check if already validated before initializing
+        this.checkValidation();
+    }
+
+    async checkValidation() {
+        const isValid = await keyValidationService.isKeyValid();
+        if (isValid) {
+            // Already validated, redirect to main page
+            window.location.replace('./index.html');
+            return;
+        }
         this.initialize();
     }
 
@@ -29,7 +40,7 @@ class ValidationPage {
                             ${result.message}
                         </div>`;
 
-                    // Save validated key data first
+                    // Save validated key data
                     await keyValidationService.saveKeyToDatabase({
                         key: keyInput.value.trim().toUpperCase(),
                         expiryTime: result.expiryTime,
@@ -37,9 +48,10 @@ class ValidationPage {
                         activatedAt: new Date().toISOString()
                     });
 
-                    // Redirect with a slight delay to show success message
+                    // Force redirect to prevent back navigation
                     setTimeout(() => {
-                        window.location.replace('./index.html');  // Use replace to prevent back navigation
+                        sessionStorage.setItem('validated', 'true');
+                        window.location.replace('./index.html');
                     }, 1500);
 
                 } else {
