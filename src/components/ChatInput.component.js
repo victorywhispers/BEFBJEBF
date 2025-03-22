@@ -4,6 +4,7 @@ import * as helpers from '../utils/helpers';
 import { chatLimitService } from '../services/ChatLimitService.js';
 import { keyValidationService } from '../services/KeyValidationService.js';
 import { ErrorService } from '../services/Error.service.js'; // Add this import
+import { telegramAuthService } from '../services/TelegramAuth.service.js';
 
 const messageInput = document.querySelector("#messageInput");
 const sendMessageButton = document.querySelector("#btn-send");
@@ -34,12 +35,24 @@ export class ChatInput {
         }
     }
 
-    checkKeyValidity() {
-        if (!keyValidationService.isKeyValid()) {
-            this.messageInput.setAttribute('disabled', 'true');
-            this.sendButton.setAttribute('disabled', 'true');
-            this.messageInput.innerHTML = 'Please activate your access key to start chatting';
+    async checkKeyValidity() {
+        // Get Telegram WebApp init data
+        const webAppData = window.Telegram?.WebApp?.initData;
+        if (!webAppData) {
+            ErrorService.showError('Must be opened through Telegram WebApp');
+            return false;
         }
+
+        // Validate current Telegram user
+        if (!telegramAuthService.validateCurrentUser(webAppData)) {
+            // Clear stored key if user doesn't match
+            telegramAuthService.clearAuth();
+            window.location.href = 'validation.html';
+            return false;
+        }
+
+        // Continue with existing key validation
+        return true;
     }
 
     updateRemainingChatsDisplay() {
