@@ -5,6 +5,7 @@ class KeyValidationService {
     constructor() {
         this.STORAGE_KEY = 'wormgpt_access_key';
         this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production URL
+        this.FRONTEND_URL = 'https://wormgpt-frontend.onrender.com'; // Add frontend URL
         this.SESSION_KEY = 'validated';
         this.VALIDATION_STATE_KEY = 'key_validation_state'; // Add new state key
     }
@@ -148,14 +149,15 @@ class KeyValidationService {
     }
 
     clearValidation(shouldRedirect = true) {
+        // Clear all storage
         sessionStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.STORAGE_KEY);
         localStorage.removeItem(this.VALIDATION_STATE_KEY);
         
-        // Only redirect if flag is true and we're not already on validation page
+        // Redirect to frontend validation page with full URL
         if (shouldRedirect && !window.location.pathname.includes('validation.html')) {
-            window.location.replace('validation.html');
+            window.location.replace(`${this.FRONTEND_URL}/src/validation.html`);
         }
     }
 }
