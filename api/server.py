@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 import datetime
@@ -87,9 +87,16 @@ def verify_api_key(api_key):
     ).hexdigest()
     return hmac.compare_digest(api_key, expected)
 
-@app.route('/validate-key', methods=['POST'])
+@app.route('/validate-key', methods=['POST', 'OPTIONS'])
+@cross_origin(
+    allow_headers=['Content-Type', 'X-API-Key'],
+    methods=['POST', 'OPTIONS']
+)
 @require_api_key
 def validate_key():
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
         data = request.json
         key = data.get('key', '').upper()
