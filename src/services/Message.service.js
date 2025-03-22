@@ -291,3 +291,62 @@ function showLimitReachedAlert() {
         });
     });
 }
+
+export class TelegramAuthService {
+    constructor() {
+        this.storageKey = 'telegram_auth';
+    }
+
+    saveAuthData(initData) {
+        try {
+            // Parse the Telegram WebApp init data
+            const urlParams = new URLSearchParams(initData);
+            const user = JSON.parse(urlParams.get('user'));
+            
+            // Store user ID and auth data
+            const authData = {
+                userId: user.id,
+                username: user.username,
+                key: localStorage.getItem('access_key'),
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem(this.storageKey, JSON.stringify(authData));
+        } catch (error) {
+            console.error('Error saving Telegram auth data:', error);
+            throw error;
+        }
+    }
+
+    getAuthData() {
+        try {
+            return JSON.parse(localStorage.getItem(this.storageKey));
+        } catch {
+            return null;
+        }
+    }
+
+    validateCurrentUser(initData) {
+        try {
+            const storedAuth = this.getAuthData();
+            if (!storedAuth) return false;
+
+            // Get current user from Telegram WebApp data
+            const urlParams = new URLSearchParams(initData);
+            const currentUser = JSON.parse(urlParams.get('user'));
+
+            // Check if current user matches stored user
+            return storedAuth.userId === currentUser.id;
+        } catch (error) {
+            console.error('Error validating Telegram user:', error);
+            return false;
+        }
+    }
+
+    clearAuth() {
+        localStorage.removeItem(this.storageKey);
+        localStorage.removeItem('access_key');
+    }
+}
+
+export const telegramAuthService = new TelegramAuthService();
