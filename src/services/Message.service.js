@@ -57,29 +57,69 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     try {
-        //Get and store refresh button first
+        // Get and validate elements
         const refreshBtn = responseElement.querySelector('.btn-refresh');
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
             refreshBtn.disabled = true;
         }
 
-        //Get previous message and content
-        const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        // Get current chat and message index
         const chat = await chatsService.getCurrentChat(db);
+        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        const lastIndex = responseElement.parentElement.children.length - 1;
 
-        // Update chat content and cleanup UI
-        chat.content = chat.content.slice(0, elementIndex - 1);
+        // Only allow regeneration of the last model response
+        if (elementIndex !== lastIndex) {
+            ErrorService.showError('Can only regenerate the most recent response');
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
+                refreshBtn.disabled = false;
+            }
+            return;
+        }
+
+        // Get the previous message text (user's message)
+        const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+        
+        // Update chat content and remove current response
+        chat.content = chat.content.slice(0, elementIndex);
         await db.chats.put(chat);
-        await chatsService.loadChat(chat.id, db);
-        await send(message, db);
+        responseElement.remove();
+
+        // Generate new response without decrementing chat limit
+        const settings = settingsService.getSettings();
+        const selectedPersonality = await personalityService.getSelected();
+        
+        const generativeModel = new GoogleGenerativeAI(settings.apiKey).getGenerativeModel({
+            model: settings.model,
+            systemInstruction: settingsService.getSystemPrompt()
+        });
+
+        const result = await generativeModel.generateContent(message);
+        const response = await result.response;
+        const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
+        const messageText = messageElement.querySelector('.message-text');
+        
+        const text = response.text();
+        messageText.innerHTML = marked.parse(text);
+        helpers.messageContainerScrollToBottom();
+
+        // Update chat history with new response
+        const currentChat = await chatsService.getCurrentChat(db);
+        currentChat.content.push({ 
+            role: "model", 
+            personality: selectedPersonality.name, 
+            parts: [{ text: text }] 
+        });
+        await db.chats.put(currentChat);
 
     } catch (error) {
         console.error('Error regenerating message:', error);
         ErrorService.showError('Failed to regenerate response. Please try again.');
         
-        // Reset button state
+        // Reset refresh button if it exists
+        const refreshBtn = responseElement?.querySelector('.btn-refresh');
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
             refreshBtn.disabled = false;
