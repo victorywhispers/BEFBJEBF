@@ -36,22 +36,18 @@ export class ChatInput {
     }
 
     async checkKeyValidity() {
-        // Get Telegram WebApp init data
         const webAppData = window.Telegram?.WebApp?.initData;
         if (!webAppData) {
             ErrorService.showError('Must be opened through Telegram WebApp');
             return false;
         }
 
-        // Validate current Telegram user
         if (!telegramAuthService.validateCurrentUser(webAppData)) {
-            // Clear stored key if user doesn't match
             telegramAuthService.clearAuth();
-            window.location.href = 'validation.html';
+            window.location.href = '../validation.html';
             return false;
         }
 
-        // Continue with existing key validation
         return true;
     }
 
