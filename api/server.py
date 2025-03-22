@@ -12,6 +12,9 @@ import re
 from functools import wraps
 import hmac
 import hashlib  # Add hashlib import
+import requests
+import threading
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -161,19 +164,57 @@ def validate_key():
             'message': 'Server error'
         })
 
+# Add keep-alive configuration
+KEEP_ALIVE_URL = "https://wormgpt-api.onrender.com/health"
+KEEP_ALIVE_INTERVAL = 600  # 10 minutes
+
+def keep_alive():
+    """Send periodic requests to keep the server alive"""
+    while True:
+        try:
+            response = requests.get(KEEP_ALIVE_URL)
+            logging.info(f"Keep-alive ping status: {response.status_code}")
+        except Exception as e:
+            logging.error(f"Keep-alive error: {str(e)}")
+        time.sleep(KEEP_ALIVE_INTERVAL)
+
+# Start keep-alive thread after MongoDB setup
+def start_keep_alive():
+    keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
+    keep_alive_thread.start()
+    logging.info("Keep-alive service started")
+
+# Add health check endpoint with detailed status
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'alive'})
+    try:
+        # Test MongoDB connection
+        client.admin.command('ping')
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': datetime.datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.datetime.now().isoformat()
+        }), 500
 
 if __name__ == '__main__':
     try:
         port = int(os.environ.get("PORT", 8080))
         logging.info(f"Starting server on port {port}")
+        
+        # Start keep-alive service
+        start_keep_alive()
+        
         app.run(
             host='0.0.0.0', 
             port=port,
-            use_reloader=True,  # Enable auto-reload
-            threaded=True       # Enable threading
+            use_reloader=True,
+            threaded=True
         )
     except Exception as e:
         logging.error(f"Server error: {str(e)}")
