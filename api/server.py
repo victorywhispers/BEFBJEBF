@@ -100,7 +100,6 @@ def validate_key():
                 'message': 'Invalid key format'
             })
         
-        # Add logging
         logging.info(f"Validating key: {key}")
         
         key_data = keys_collection.find_one({'key': key})
@@ -112,7 +111,7 @@ def validate_key():
                 'message': 'Invalid or unknown key'
             })
 
-        # Check if key is expired
+        # Format expiry time properly
         expiry_time = key_data.get('expiry_time')
         if not expiry_time:
             return jsonify({
@@ -126,37 +125,21 @@ def validate_key():
                 'message': 'Key has expired'
             })
 
-        # Check if key has been revoked
-        if key_data.get('revoked', False):
-            return jsonify({
-                'valid': False,
-                'message': 'Key has been revoked'
-            })
+        # Convert expiry_time to ISO format string
+        formatted_expiry = expiry_time.isoformat()
 
-        # Check usage limit for trial keys
-        if key_data.get('type') == 'trial':
-            usage_count = key_data.get('usage_count', 0)
-            max_uses = key_data.get('max_uses', 1)
-            if usage_count >= max_uses:
-                return jsonify({
-                    'valid': False,
-                    'message': 'Key usage limit exceeded'
-                })
-            
-            # Increment usage count
-            keys_collection.update_one(
-                {'key': key},
-                {'$inc': {'usage_count': 1}}
-            )
-
-        key_data['_id'] = str(key_data['_id'])
-        return jsonify({
+        # Remove MongoDB _id and convert expiry_time to string
+        key_data = {
             'valid': True,
             'key': key_data['key'],
-            'expiryTime': key_data['expiry_time'],
+            'expiryTime': formatted_expiry,
             'type': key_data.get('type', 'trial'),
-            'message': 'Key validated successfully'
-        })
+            'message': 'Key validated successfully',
+            'usage_count': key_data.get('usage_count', 0),
+            'max_uses': key_data.get('max_uses', 1)
+        }
+
+        return jsonify(key_data)
 
     except Exception as e:
         logging.error(f"Validation error: {str(e)}")
