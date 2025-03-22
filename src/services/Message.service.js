@@ -58,11 +58,17 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 export async function regenerate(responseElement, db) {
     let refreshBtn = null;
     try {
-        // Get and store refresh button first
+        // Get and validate elements
         refreshBtn = responseElement.querySelector('.btn-refresh');
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
             refreshBtn.disabled = true;
+        }
+
+        // Check if this is the last response
+        const lastMessage = responseElement.parentElement.lastElementChild;
+        if (responseElement !== lastMessage) {
+            throw new Error('Can only regenerate the most recent response');
         }
 
         // Get message and current personality
@@ -83,16 +89,15 @@ export async function regenerate(responseElement, db) {
             systemInstruction: settingsService.getSystemPrompt()
         });
 
-        // Update chat history
-        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+        // Remove old response and regenerate
+        responseElement.remove();
+        
+        // Update chat history to remove old response
         const chat = await chatsService.getCurrentChat(db);
-        chat.content = chat.content.slice(0, elementIndex);
+        chat.content.pop(); // Remove last response only
         await db.chats.put(chat);
 
-        // Remove old response
-        responseElement.remove();
-
-        // Generate new response with same personality context
+        // Generate new response
         const chatContext = generativeModel.startChat({
             generationConfig: {
                 maxOutputTokens: settings.maxTokens,
@@ -134,7 +139,7 @@ export async function regenerate(responseElement, db) {
 
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError('Failed to regenerate response. Please try again.');
+        ErrorService.showError(error.message || 'Failed to regenerate response. Please try again.');
         
         // Reset button state
         if (refreshBtn) {
