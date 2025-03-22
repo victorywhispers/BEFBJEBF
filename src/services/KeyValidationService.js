@@ -34,33 +34,27 @@ class KeyValidationService {
                 body: JSON.stringify({ key: key.toUpperCase() })
             });
 
-            if (!response.ok) {
-                console.error('Server response not OK:', response.status);
-                return { valid: false, message: 'Server validation failed' };
-            }
-
             const data = await response.json();
             console.log('Server response:', data);
 
-            // First check if the server considers it valid
+            // Server-side validation check
             if (!data.valid) {
-                return data; // Return server's invalid response directly
+                return data;
             }
 
-            // Double check expiry time even if server says valid
+            // Client-side expiry check
             const now = new Date();
             const expiryTime = new Date(data.expiryTime);
 
             if (now >= expiryTime) {
-                // Clear any existing validation state
-                this.clearValidation();
+                this.clearValidation(false); // Don't redirect immediately
                 return {
                     valid: false,
                     message: 'This key has expired'
                 };
             }
 
-            // Only save state if key is valid AND not expired
+            // Save valid state
             const validationState = {
                 key: key.toUpperCase(),
                 expiryTime: data.expiryTime,
@@ -70,7 +64,6 @@ class KeyValidationService {
                 lastVerified: new Date().toISOString()
             };
             
-            // Save valid state
             await this.saveKeyToDatabase(validationState);
             sessionStorage.setItem(this.SESSION_KEY, 'true');
             localStorage.setItem(this.SESSION_KEY, 'true');
@@ -154,15 +147,15 @@ class KeyValidationService {
         };
     }
 
-    clearValidation() {
+    clearValidation(shouldRedirect = true) {
         sessionStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.STORAGE_KEY);
         localStorage.removeItem(this.VALIDATION_STATE_KEY);
         
-        // Fix the validation page path
-        if (window.location.pathname !== '/src/validation.html') {
-            window.location.replace('/src/validation.html');
+        // Only redirect if flag is true and we're not already on validation page
+        if (shouldRedirect && !window.location.pathname.includes('validation.html')) {
+            window.location.replace('validation.html');
         }
     }
 }
