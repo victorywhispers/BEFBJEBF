@@ -5,6 +5,7 @@ class KeyValidationService {
     constructor() {
         this.STORAGE_KEY = 'wormgpt_access_key';
         this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production URL
+        this.SESSION_KEY = 'validated';
     }
 
     validateKeyFormat(key) {
@@ -86,12 +87,23 @@ class KeyValidationService {
 
     async isKeyValid() {
         try {
+            // Check session first
+            if (sessionStorage.getItem(this.SESSION_KEY) === 'true') {
+                return true;
+            }
+
             const keyData = await this.getKeyData();
             if (!keyData) return false;
 
             const now = new Date();
             const expiryTime = new Date(keyData.expiryTime);
-            return now < expiryTime;
+            const isValid = now < expiryTime;
+
+            if (isValid) {
+                sessionStorage.setItem(this.SESSION_KEY, 'true');
+            }
+
+            return isValid;
         } catch (error) {
             console.error('Error checking key validity:', error);
             return false;
