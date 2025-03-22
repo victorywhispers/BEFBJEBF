@@ -36,10 +36,12 @@ class ValidationPage {
                 const result = await keyValidationService.validateKey(keyInput.value.trim());
 
                 if (result.valid) {
-                    // Save Telegram auth data
                     const webAppData = window.Telegram?.WebApp?.initData;
                     if (webAppData) {
-                        await telegramAuthService.saveAuthData(webAppData);
+                        const saved = await telegramAuthService.saveAuthData(webAppData);
+                        if (!saved) {
+                            throw new Error('Failed to save auth data');
+                        }
                     }
 
                     statusElement.innerHTML = `
