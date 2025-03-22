@@ -1,6 +1,6 @@
 import { tasksService } from './Tasks.service.js';
 
-export class ChatLimitService {
+export class  ChatLimitService {
     constructor() {
         this.storageKey = 'chat_limits';
         this.processingMessage = false;
@@ -49,7 +49,6 @@ export class ChatLimitService {
     }
 
     async decrementChatLimit() {
-        // Prevent multiple decrements for the same message
         if (this.processingMessage) {
             return await this.getRemainingChats();
         }
@@ -59,21 +58,20 @@ export class ChatLimitService {
             await this.checkDailyReset();
             const limits = JSON.parse(localStorage.getItem(this.storageKey));
             
-            // First try to use regular chat limit
+            // Try to use bonus messages first
+            const bonusMessages = tasksService.getBonusMessages();
+            if (bonusMessages > 0) {
+                tasksService.useBonusMessage();
+                return limits ? limits.remaining : 0;
+            }
+            
+            // If no bonus messages, use regular limit
             if (limits && limits.remaining > 0) {
                 limits.remaining--;
                 localStorage.setItem(this.storageKey, JSON.stringify(limits));
-                return limits.remaining;
             }
-            
-            // If no regular chats left, use bonus messages
-            if (tasksService.useBonusMessage()) {
-                return 0; // Return 0 for regular chats since we used a bonus
-            }
-            
-            return -1; // No messages available
+            return limits ? limits.remaining : 0;
         } finally {
-            // Reset the processing flag after a delay
             setTimeout(() => {
                 this.processingMessage = false;
             }, 1000);
@@ -100,6 +98,7 @@ export class ChatLimitService {
         const remaining = await this.getRemainingChats();
         const bonusMessages = tasksService.getBonusMessages();
         const displayElement = document.querySelector('.chat-limit-display');
+        const bonusElement = document.querySelector('#bonus-messages-count');
         
         if (displayElement) {
             if (remaining > 0) {
@@ -109,6 +108,10 @@ export class ChatLimitService {
             } else {
                 displayElement.textContent = 'No messages remaining';
             }
+        }
+
+        if (bonusElement) {
+            bonusElement.textContent = `${bonusMessages} bonus messages remaining`;
         }
     }
 }
