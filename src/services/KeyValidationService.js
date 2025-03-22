@@ -24,8 +24,6 @@ class KeyValidationService {
             }
 
             const apiKey = await generateApiKey();
-            console.log('Sending request to:', `${this.BASE_URL}/validate-key`);
-            
             const response = await fetch(`${this.BASE_URL}/validate-key`, {
                 method: 'POST',
                 headers: {
@@ -38,33 +36,53 @@ class KeyValidationService {
 
             if (!response.ok) {
                 console.error('Server response not OK:', response.status);
-                return { 
-                    valid: false, 
-                    message: 'Server validation failed' 
-                };
+                return { valid: false, message: 'Server validation failed' };
             }
 
             const data = await response.json();
             console.log('Server response:', data);
 
-            if (data.valid) {
-                const validationState = {
-                    key: key.toUpperCase(),
-                    expiryTime: data.expiryTime,
-                    type: data.type,
-                    activatedAt: new Date().toISOString(),
-                    isValid: true,
-                    lastVerified: new Date().toISOString() // Add this to track last verification
-                };
-                
-                // Save complete validation state
-                await this.saveKeyToDatabase(validationState);
-                sessionStorage.setItem(this.SESSION_KEY, 'true');
-                localStorage.setItem(this.SESSION_KEY, 'true');
-                localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
+            // First check if the server considers it valid
+            if (!data.valid) {
+                return data; // Return server's invalid response directly
             }
+
+            // Double check expiry time even if server says valid
+            const now = new Date();
+            const expiryTime = new Date(data.expiryTime);
+
+            if (now >= expiryTime) {
+                // Clear any existing validation state
+                this.clearValidation();
+                return {
+                    valid: false,
+                    message: 'This key has expired'
+                };
+            }
+
+            // Only save state if key is valid AND not expired
+            const validationState = {
+                key: key.toUpperCase(),
+                expiryTime: data.expiryTime,
+                type: data.type,
+                activatedAt: new Date().toISOString(),
+                isValid: true,
+                lastVerified: new Date().toISOString()
+            };
             
-            return data;
+            // Save valid state
+            await this.saveKeyToDatabase(validationState);
+            sessionStorage.setItem(this.SESSION_KEY, 'true');
+            localStorage.setItem(this.SESSION_KEY, 'true');
+            localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
+            
+            return {
+                valid: true,
+                message: 'Key validated successfully',
+                expiryTime: data.expiryTime,
+                type: data.type
+            };
+
         } catch (error) {
             console.error('Key validation error:', error);
             return { 
@@ -102,9 +120,9 @@ class KeyValidationService {
             const now = new Date();
             const expiryTime = new Date(keyData.expiryTime);
 
-            // Strict expiry check and clear validation if expired
+            // Strict expiry check
             if (now >= expiryTime) {
-                this.clearValidation();
+                this.clearValidation(); // This will redirect to the correct path now
                 return false;
             }
 
@@ -141,9 +159,10 @@ class KeyValidationService {
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.STORAGE_KEY);
         localStorage.removeItem(this.VALIDATION_STATE_KEY);
-        // Force redirect to validation page if currently in chat
-        if (window.location.pathname !== '/validation.html') {
-            window.location.replace('./validation.html');
+        
+        // Fix the validation page path
+        if (window.location.pathname !== '/src/validation.html') {
+            window.location.replace('/src/validation.html');
         }
     }
 }
