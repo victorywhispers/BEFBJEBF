@@ -15,19 +15,6 @@ class ValidationPage {
         const privacyBtn = document.getElementById('privacyBtn');
         const termsBtn = document.getElementById('termsBtn');
 
-        // Update button state based on input
-        const updateButtonState = () => {
-            const isEmpty = !keyInput.value.trim();
-            verifyBtn.className = `verify-button ${isEmpty ? 'get-key' : 'verify'}`;
-            verifyBtn.innerHTML = isEmpty ? 
-                '<span class="material-symbols-outlined">download</span>Get Key' :
-                '<span class="material-symbols-outlined">check_circle</span>Verify';
-                
-            verifyBtn.onclick = isEmpty ?
-                () => window.open('https://t.me/HecKeys_bot', '_blank') :
-                this.handleVerification;
-        };
-
         const handleVerification = async () => {
             try {
                 verifyBtn.disabled = true;
@@ -36,27 +23,32 @@ class ValidationPage {
                 const result = await keyValidationService.validateKey(keyInput.value.trim());
 
                 if (result.valid) {
-                    const webAppData = window.Telegram?.WebApp?.initData;
-                    if (webAppData) {
-                        const saved = await telegramAuthService.saveAuthData(webAppData);
-                        if (!saved) {
-                            throw new Error('Failed to save auth data');
-                        }
-                    }
-
                     statusElement.innerHTML = `
                         <div class="success-message">
                             <span class="material-symbols-outlined">check_circle</span>
                             ${result.message}
                         </div>`;
 
-                    setTimeout(() => window.location.href = './index.html', 1500);
+                    // Save validated key data first
+                    await keyValidationService.saveKeyToDatabase({
+                        key: keyInput.value.trim().toUpperCase(),
+                        expiryTime: result.expiryTime,
+                        type: result.type,
+                        activatedAt: new Date().toISOString()
+                    });
+
+                    // Redirect with a slight delay to show success message
+                    setTimeout(() => {
+                        window.location.replace('./index.html');  // Use replace to prevent back navigation
+                    }, 1500);
+
                 } else {
                     statusElement.innerHTML = `
                         <div class="error-message">
                             <span class="material-symbols-outlined">error</span>
                             ${result.message}
                         </div>`;
+                    verifyBtn.disabled = false;
                 }
             } catch (error) {
                 console.error('Verification error:', error);
@@ -65,10 +57,21 @@ class ValidationPage {
                         <span class="material-symbols-outlined">error</span>
                         Error connecting to server
                     </div>`;
-            } finally {
                 verifyBtn.disabled = false;
-                updateButtonState();
             }
+        };
+
+        // Update button state based on input
+        const updateButtonState = () => {
+            const isEmpty = !keyInput.value.trim();
+            verifyBtn.className = `verify-button ${isEmpty ? 'get-key' : 'verify'}`;
+            verifyBtn.innerHTML = isEmpty ? 
+                '<span class="material-symbols-outlined">download</span>Get Key' :
+                '<span class="material-symbols-outlined">check_circle</span>Verify';
+            
+            verifyBtn.onclick = isEmpty ?
+                () => window.open('https://t.me/HecKeys_bot', '_blank') :
+                handleVerification;
         };
 
         keyInput.addEventListener('input', updateButtonState);
