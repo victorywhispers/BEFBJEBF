@@ -70,6 +70,10 @@ class KeyValidationService {
             localStorage.setItem(this.SESSION_KEY, 'true');
             localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
             
+            // Reset chat limits when new key is validated
+            await chatLimitService.resetChatLimit();
+            await chatLimitService.updateDisplay();
+
             return {
                 valid: true,
                 message: 'Key validated successfully',
