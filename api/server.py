@@ -88,10 +88,7 @@ def verify_api_key(api_key):
     return hmac.compare_digest(api_key, expected)
 
 @app.route('/validate-key', methods=['POST', 'OPTIONS'])
-@cross_origin(
-    allow_headers=['Content-Type', 'X-API-Key'],
-    methods=['POST', 'OPTIONS']
-)
+@cross_origin(allow_headers=['Content-Type', 'X-API-Key'])
 @require_api_key
 def validate_key():
     if request.method == 'OPTIONS':
@@ -106,47 +103,39 @@ def validate_key():
                 'valid': False,
                 'message': 'Invalid key format'
             })
-        
-        logging.info(f"Validating key: {key}")
-        
+
         key_data = keys_collection.find_one({'key': key})
-        logging.info(f"Found key data: {key_data}")
-        
         if not key_data:
             return jsonify({
                 'valid': False,
                 'message': 'Invalid or unknown key'
             })
 
-        # Format expiry time properly
+        # Check expiry
+        now = datetime.datetime.now()
         expiry_time = key_data.get('expiry_time')
+        
         if not expiry_time:
             return jsonify({
                 'valid': False,
                 'message': 'Invalid key data'
             })
 
-        if datetime.datetime.now() > expiry_time:
+        # Strict expiry check
+        if now >= expiry_time:
             return jsonify({
                 'valid': False,
                 'message': 'Key has expired'
             })
 
-        # Convert expiry_time to ISO format string
-        formatted_expiry = expiry_time.isoformat()
-
-        # Remove MongoDB _id and convert expiry_time to string
-        key_data = {
+        # Return valid key data
+        return jsonify({
             'valid': True,
             'key': key_data['key'],
-            'expiryTime': formatted_expiry,
+            'expiryTime': expiry_time.isoformat(),
             'type': key_data.get('type', 'trial'),
-            'message': 'Key validated successfully',
-            'usage_count': key_data.get('usage_count', 0),
-            'max_uses': key_data.get('max_uses', 1)
-        }
-
-        return jsonify(key_data)
+            'message': 'Key validated successfully'
+        })
 
     except Exception as e:
         logging.error(f"Validation error: {str(e)}")
