@@ -1,3 +1,5 @@
+import { tasksService } from './Tasks.service.js';
+
 export class ChatLimitService {
     constructor() {
         this.storageKey = 'chat_limits';
@@ -41,7 +43,9 @@ export class ChatLimitService {
     async canSendMessage() {
         await this.checkDailyReset();
         const limits = JSON.parse(localStorage.getItem(this.storageKey));
-        return limits && limits.remaining > 0;
+        const bonusMessages = tasksService.getBonusMessages();
+        
+        return (limits && limits.remaining > 0) || bonusMessages > 0;
     }
 
     async decrementChatLimit() {
@@ -54,11 +58,20 @@ export class ChatLimitService {
             this.processingMessage = true;
             await this.checkDailyReset();
             const limits = JSON.parse(localStorage.getItem(this.storageKey));
+            
+            // First try to use regular chat limit
             if (limits && limits.remaining > 0) {
                 limits.remaining--;
                 localStorage.setItem(this.storageKey, JSON.stringify(limits));
+                return limits.remaining;
             }
-            return limits ? limits.remaining : 0;
+            
+            // If no regular chats left, use bonus messages
+            if (tasksService.useBonusMessage()) {
+                return 0; // Return 0 for regular chats since we used a bonus
+            }
+            
+            return -1; // No messages available
         } finally {
             // Reset the processing flag after a delay
             setTimeout(() => {
@@ -85,9 +98,17 @@ export class ChatLimitService {
 
     async updateDisplay() {
         const remaining = await this.getRemainingChats();
+        const bonusMessages = tasksService.getBonusMessages();
         const displayElement = document.querySelector('.chat-limit-display');
+        
         if (displayElement) {
-            displayElement.textContent = `${remaining} messages remaining today`;
+            if (remaining > 0) {
+                displayElement.textContent = `${remaining} messages remaining today + ${bonusMessages} bonus`;
+            } else if (bonusMessages > 0) {
+                displayElement.textContent = `${bonusMessages} bonus messages remaining`;
+            } else {
+                displayElement.textContent = 'No messages remaining';
+            }
         }
     }
 }
