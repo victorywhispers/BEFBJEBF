@@ -16,7 +16,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
             <div class="message-header">
-                <h3 class="message-role">${selectedPersonalityTitle || 'Assistant'}</h3>
+                <h3 class="message-role">${selectedPersonalityTitle || 'Lisa'}</h3>
                 <button class="btn-refresh btn-textual material-symbols-outlined" title="Regenerate response">
                     refresh
                 </button>
