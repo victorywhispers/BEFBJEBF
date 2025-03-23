@@ -123,15 +123,14 @@ export async function regenerate(responseElement, db) {
             msg.parts[0].text === message
         );
         
-        // Only include history up to the original message
+        // Include ALL history up to the current message being regenerated
         const cleanHistory = chat.content
-            .slice(0, messageIndex + 1)
+            .slice(0, messageIndex + 1) // +1 to include the current message
             .map(msg => ({
                 role: msg.role,
                 parts: msg.parts
             }));
 
-        // Generate new response with cleaned history
         const chatContext = generativeModel.startChat({
             generationConfig: {
                 maxOutputTokens: settings.maxTokens,
@@ -150,7 +149,7 @@ export async function regenerate(responseElement, db) {
                 ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
                     return { role: "model", parts: [{ text: tone }] }
                 }) : []),
-                ...cleanHistory
+                ...cleanHistory  // Include all previous chat history
             ]
         });
 
