@@ -1,5 +1,6 @@
 import { chatLimitService } from './ChatLimitService.js';
 import { db } from './Db.service.js';
+import { addCopyButtons } from '../utils/helpers.js';
 
 class KeyValidationService {
     constructor() {
@@ -55,31 +56,49 @@ class KeyValidationService {
                 };
             }
 
-            // Save valid state
-            const validationState = {
-                key: key.toUpperCase(),
-                expiryTime: data.expiryTime,
-                type: data.type,
-                activatedAt: new Date().toISOString(),
-                isValid: true,
-                lastVerified: new Date().toISOString()
-            };
-            
-            await this.saveKeyToDatabase(validationState);
-            sessionStorage.setItem(this.SESSION_KEY, 'true');
-            localStorage.setItem(this.SESSION_KEY, 'true');
-            localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
-            
-            // Reset chat limits when new key is validated
-            await chatLimitService.resetChatLimit();
-            await chatLimitService.updateDisplay();
+            if (data.valid) {
+                // Save valid state
+                const validationState = {
+                    key: key.toUpperCase(),
+                    expiryTime: data.expiryTime,
+                    type: data.type,
+                    activatedAt: new Date().toISOString(),
+                    isValid: true,
+                    lastVerified: new Date().toISOString()
+                };
+                
+                await this.saveKeyToDatabase(validationState);
+                sessionStorage.setItem(this.SESSION_KEY, 'true');
+                localStorage.setItem(this.SESSION_KEY, 'true');
+                localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
+                
+                // Reset chat limits AND immediately update display
+                await chatLimitService.resetChatLimit();
+                await chatLimitService.updateDisplay(); // First update after reset
+                
+                // Update display elements
+                const displayElement = document.querySelector('.chat-limit-display');
+                const remainingChatsCount = document.querySelector('#remaining-chats-count');
+                
+                if (displayElement) {
+                    displayElement.textContent = '40 messages remaining today';
+                }
+                if (remainingChatsCount) {
+                    remainingChatsCount.textContent = '40 chats remaining';
+                }
 
-            return {
-                valid: true,
-                message: 'Key validated successfully',
-                expiryTime: data.expiryTime,
-                type: data.type
-            };
+                // Immediately initialize copy buttons after successful validation
+                setTimeout(() => {
+                    addCopyButtons();
+                }, 100); // Small delay to ensure DOM is updated
+
+                return {
+                    valid: true,
+                    message: 'Key validated successfully',
+                    expiryTime: data.expiryTime,
+                    type: data.type
+                };
+            }
 
         } catch (error) {
             console.error('Key validation error:', error);
