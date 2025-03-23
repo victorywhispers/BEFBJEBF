@@ -79,6 +79,13 @@ export async function regenerate(responseElement, db) {
     const originalContent = sendButton.innerHTML;
     
     try {
+        // Check if this is the last response
+        const lastMessage = responseElement.parentElement.lastElementChild;
+        if (responseElement !== lastMessage) {
+            ErrorService.showError('Can only regenerate the most recent response');
+            return;
+        }
+
         // Disable all controls immediately
         sendButton.disabled = true;
         sendButton.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
