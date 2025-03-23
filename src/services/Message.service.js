@@ -31,6 +31,13 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             let isProcessing = false;
             
             refreshBtn.onclick = async () => {
+                // Check if this is the last response first
+                const lastMessage = newMessage.parentElement.lastElementChild;
+                if (newMessage !== lastMessage) {
+                    ErrorService.showError('Can only regenerate the most recent response');
+                    return;
+                }
+
                 // Prevent multiple clicks while processing
                 if (isProcessing) {
                     return;
