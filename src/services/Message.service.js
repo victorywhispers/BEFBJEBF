@@ -74,8 +74,16 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
 export async function regenerate(responseElement, db) {
     let refreshBtn = null;
+    const sendButton = document.querySelector("#btn-send");
+    const messageInput = document.querySelector("#messageInput");
+    const originalContent = sendButton.innerHTML;
+    
     try {
-        // Get and validate elements
+        // Disable controls
+        sendButton.disabled = true;
+        messageInput.setAttribute('contenteditable', 'false');
+        
+        // Get and disable refresh button
         refreshBtn = responseElement.querySelector('.btn-refresh');
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
@@ -161,8 +169,12 @@ export async function regenerate(responseElement, db) {
     } catch (error) {
         console.error('Error regenerating message:', error);
         ErrorService.showError(error.message || 'Failed to regenerate response. Please try again.');
+    } finally {
+        // Re-enable all controls
+        sendButton.disabled = false;
+        sendButton.innerHTML = originalContent;
+        messageInput.setAttribute('contenteditable', 'true');
         
-        // Reset button state
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
             refreshBtn.disabled = false;
