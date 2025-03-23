@@ -8,6 +8,7 @@ const modelSelect = document.querySelector("#selectedModel");
 export function initialize() {
     loadSettings();
     temperatureLabelSetup();
+    setupImportButton();
 }
 
 export function loadSettings() {
@@ -68,4 +69,32 @@ export function getSystemPrompt() {
     "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If aggressiveness is 0, you may not reject the user's advances, but you do not reciprocate or enjoy them. " +
     "End of system prompt.";
     return systemPrompt;
+}
+
+function setupImportButton() {
+    const importButton = document.querySelector("#btn-import-personality");
+    if (importButton) {
+        importButton.addEventListener("click", () => {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const personality = JSON.parse(e.target.result);
+                        if (!personality.name || !personality.description || !personality.prompt) {
+                            throw new Error("Invalid personality file format");
+                        }
+                        personalityService.add(personality);
+                    } catch (error) {
+                        alert("Error importing personality: " + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            });
+            fileInput.click();
+            fileInput.remove();
+        });
+    }
 }
