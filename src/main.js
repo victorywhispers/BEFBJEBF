@@ -100,25 +100,6 @@ function initializeEventListeners() {
         });
     }
 
-    const importPersonalityButton = document.querySelector("#btn-import-personality");
-    if (importPersonalityButton) {
-        importPersonalityButton.addEventListener("click", () => {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.addEventListener('change', () => {
-                const file = fileInput.files[0];
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const personality = JSON.parse(e.target.result);
-                    personalityService.add(personality);
-                };
-                reader.readAsText(file);
-            });
-            fileInput.click();
-            fileInput.remove();
-        });
-    }
-
     window.addEventListener("resize", () => {
         //show sidebar if window is resized to desktop size
         if (window.innerWidth > 1032) {
