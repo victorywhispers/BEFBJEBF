@@ -116,15 +116,18 @@ export async function regenerate(responseElement, db) {
             systemInstruction: settingsService.getSystemPrompt()
         });
 
-        // Get chat history up to the message being regenerated
+        // Get the original message and its index
+        const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
         
+        // Keep only history up to this message's position
+        chat.content = chat.content.slice(0, elementIndex);
+        
         // Get all history up to current message for context
-        const cleanHistory = chat.content
-            .map(msg => ({
-                role: msg.role,
-                parts: msg.parts
-            }));
+        const cleanHistory = chat.content.map(msg => ({
+            role: msg.role,
+            parts: msg.parts
+        }));
 
         const chatContext = generativeModel.startChat({
             generationConfig: {
