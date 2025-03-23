@@ -8,7 +8,7 @@ const modelSelect = document.querySelector("#selectedModel");
 export function initialize() {
     loadSettings();
     temperatureLabelSetup();
-    setupImportButton();
+    // Remove setupImportButton(); call
 }
 
 export function loadSettings() {
@@ -71,30 +71,14 @@ export function getSystemPrompt() {
     return systemPrompt;
 }
 
+// Remove entire setupImportButton function
+/* 
 function setupImportButton() {
     const importButton = document.querySelector("#btn-import-personality");
     if (importButton) {
         importButton.addEventListener("click", () => {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.addEventListener('change', () => {
-                const file = fileInput.files[0];
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const personality = JSON.parse(e.target.result);
-                        if (!personality.name || !personality.description || !personality.prompt) {
-                            throw new Error("Invalid personality file format");
-                        }
-                        personalityService.add(personality);
-                    } catch (error) {
-                        alert("Error importing personality: " + error.message);
-                    }
-                };
-                reader.readAsText(file);
-            });
-            fileInput.click();
-            fileInput.remove();
+            // ...
         });
     }
 }
+*/
