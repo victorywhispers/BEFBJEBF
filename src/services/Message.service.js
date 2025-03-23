@@ -156,8 +156,14 @@ export async function regenerate(responseElement, db) {
         const result = await chatContext.sendMessage(message);
         const response = await result.response;
 
-        // Create new message element
-        const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
+        // Create new message element with personality name
+        const messageElement = await insertMessage(
+            "model", 
+            "", 
+            selectedPersonality.name, // Pass personality name here
+            null, 
+            db
+        );
         const messageText = messageElement.querySelector('.message-text');
         const text = response.text();
         
@@ -165,9 +171,10 @@ export async function regenerate(responseElement, db) {
         helpers.addCopyButtons();
         helpers.messageContainerScrollToBottom();
 
-        // Update chat history without personality field in parts
+        // Update chat history with personality info
         chat.content.push({ 
             role: "model",
+            personality: selectedPersonality.name, // Keep personality in history
             parts: [{ text: text }]
         });
         await db.chats.put(chat);
