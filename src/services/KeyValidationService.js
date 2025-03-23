@@ -26,7 +26,7 @@ class KeyValidationService {
             }
 
             const apiKey = await generateApiKey();
-            const response = await fetch(`${this.BASE_URL}/validate-key`, {
+            const response = await fetch(`${this.BASE_URL}/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
