@@ -102,7 +102,7 @@ export async function regenerate(responseElement, db) {
         // Add artificial delay for UX
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Get message and current personality
+        // Get the original user message
         const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
         const selectedPersonality = await personalityService.getSelected();
         if (!selectedPersonality) {
@@ -116,12 +116,20 @@ export async function regenerate(responseElement, db) {
             systemInstruction: settingsService.getSystemPrompt()
         });
 
-        // Clean up history to remove personality field before sending
+        // Get chat history up to the message being regenerated
         const chat = await chatsService.getCurrentChat(db);
-        const cleanHistory = chat.content.map(msg => ({
-            role: msg.role,
-            parts: msg.parts
-        }));
+        const messageIndex = chat.content.findIndex(msg => 
+            msg.role === "user" && 
+            msg.parts[0].text === message
+        );
+        
+        // Only include history up to the original message
+        const cleanHistory = chat.content
+            .slice(0, messageIndex + 1)
+            .map(msg => ({
+                role: msg.role,
+                parts: msg.parts
+            }));
 
         // Generate new response with cleaned history
         const chatContext = generativeModel.startChat({
