@@ -27,11 +27,28 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         // Add refresh button handler
         const refreshBtn = newMessage.querySelector('.btn-refresh');
         if (refreshBtn) {
+            // Add processing state flag
+            let isProcessing = false;
+            
             refreshBtn.onclick = async () => {
+                // Prevent multiple clicks while processing
+                if (isProcessing) {
+                    return;
+                }
+                
                 try {
+                    isProcessing = true;
+                    refreshBtn.disabled = true;
+                    refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
+                    
                     await regenerate(newMessage, db);
                 } catch (error) {
                     console.error('Regeneration failed:', error);
+                    // Reset button state on error
+                    refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
+                } finally {
+                    isProcessing = false;
+                    refreshBtn.disabled = false;
                 }
             };
         }
@@ -39,7 +56,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         if (!netStream && msg) {
             const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons();
+            helpers.addCopyButtons(); // Add copy buttons immediately after parsing markdown
         }
     } else {
         newMessage.innerHTML = `
@@ -95,7 +112,6 @@ export async function regenerate(responseElement, db) {
         // Update chat history to remove old response
         const chat = await chatsService.getCurrentChat(db);
         chat.content.pop(); // Remove last response only
-        await db.chats.put(chat);
 
         // Generate new response
         const chatContext = generativeModel.startChat({
@@ -116,7 +132,11 @@ export async function regenerate(responseElement, db) {
                 ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
                     return { role: "model", parts: [{ text: tone }] }
                 }) : []),
-                ...chat.content
+                // Clean the chat history to only include role and parts
+                ...chat.content.map(msg => ({
+                    role: msg.role,
+                    parts: msg.parts
+                }))
             ]
         });
 
@@ -127,6 +147,7 @@ export async function regenerate(responseElement, db) {
         
         const text = response.text();
         messageText.innerHTML = marked.parse(text);
+        helpers.addCopyButtons(); // Add copy buttons immediately after parsing markdown
         helpers.messageContainerScrollToBottom();
 
         // Update chat history
@@ -229,6 +250,7 @@ export async function send(msg, db) {
             
             const text = response.text();
             messageText.innerHTML = marked.parse(text);
+            helpers.addCopyButtons(); // Add copy buttons immediately after parsing markdown
             helpers.messageContainerScrollToBottom();
 
             // Save both messages in chat history
