@@ -79,16 +79,21 @@ export async function regenerate(responseElement, db) {
     const originalContent = sendButton.innerHTML;
     
     try {
-        // Disable controls
+        // Disable all controls immediately
         sendButton.disabled = true;
+        sendButton.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         messageInput.setAttribute('contenteditable', 'false');
+        messageInput.style.opacity = '0.7';
         
         // Get and disable refresh button
         refreshBtn = responseElement.querySelector('.btn-refresh');
         if (refreshBtn) {
-            refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
             refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         }
+
+        // Add artificial delay for UX
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Check if this is the last response
         const lastMessage = responseElement.parentElement.lastElementChild;
@@ -103,25 +108,14 @@ export async function regenerate(responseElement, db) {
             throw new Error('No personality selected');
         }
 
-        const settings = settingsService.getSettings();
-        if (!settings.apiKey || !message) {
-            throw new Error('Missing API key or message');
-        }
-
-        // Setup model with same personality context
-        const generativeModel = new GoogleGenerativeAI(settings.apiKey).getGenerativeModel({
-            model: settings.model,
-            systemInstruction: settingsService.getSystemPrompt()
-        });
-
-        // Remove old response and regenerate
-        responseElement.remove();
-        
-        // Update chat history to remove old response
+        // Clean up history to remove personality field before sending
         const chat = await chatsService.getCurrentChat(db);
-        chat.content.pop(); // Remove last response only
+        const cleanHistory = chat.content.map(msg => ({
+            role: msg.role,
+            parts: msg.parts
+        }));
 
-        // Generate new response
+        // Generate new response with cleaned history
         const chatContext = generativeModel.startChat({
             generationConfig: {
                 maxOutputTokens: settings.maxTokens,
@@ -140,40 +134,40 @@ export async function regenerate(responseElement, db) {
                 ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
                     return { role: "model", parts: [{ text: tone }] }
                 }) : []),
-                // Clean the chat history to only include role and parts
-                ...chat.content.map(msg => ({
-                    role: msg.role,
-                    parts: msg.parts
-                }))
+                ...cleanHistory
             ]
         });
 
+        // Remove old response and generate new one
+        responseElement.remove();
         const result = await chatContext.sendMessage(message);
         const response = await result.response;
+
+        // Create new message element
         const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
         const messageText = messageElement.querySelector('.message-text');
-        
         const text = response.text();
+        
         messageText.innerHTML = marked.parse(text);
-        helpers.addCopyButtons(); // Add copy buttons immediately after parsing markdown
+        helpers.addCopyButtons();
         helpers.messageContainerScrollToBottom();
 
-        // Update chat history
+        // Update chat history without personality field in parts
         chat.content.push({ 
-            role: "model", 
-            personality: selectedPersonality.name, 
-            parts: [{ text: text }] 
+            role: "model",
+            parts: [{ text: text }]
         });
         await db.chats.put(chat);
 
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError(error.message || 'Failed to regenerate response. Please try again.');
+        ErrorService.showError('Failed to regenerate response. Please try again.');
     } finally {
         // Re-enable all controls
         sendButton.disabled = false;
         sendButton.innerHTML = originalContent;
         messageInput.setAttribute('contenteditable', 'true');
+        messageInput.style.opacity = '1';
         
         if (refreshBtn) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined">refresh</span>';
