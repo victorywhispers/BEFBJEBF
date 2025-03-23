@@ -118,14 +118,9 @@ export async function regenerate(responseElement, db) {
 
         // Get chat history up to the message being regenerated
         const chat = await chatsService.getCurrentChat(db);
-        const messageIndex = chat.content.findIndex(msg => 
-            msg.role === "user" && 
-            msg.parts[0].text === message
-        );
         
-        // Include ALL history up to the current message being regenerated
+        // Get all history up to current message for context
         const cleanHistory = chat.content
-            .slice(0, messageIndex + 1) // +1 to include the current message
             .map(msg => ({
                 role: msg.role,
                 parts: msg.parts
@@ -149,7 +144,7 @@ export async function regenerate(responseElement, db) {
                 ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
                     return { role: "model", parts: [{ text: tone }] }
                 }) : []),
-                ...cleanHistory  // Include all previous chat history
+                ...cleanHistory  // Include ALL chat history
             ]
         });
 
