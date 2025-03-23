@@ -5,10 +5,10 @@ import { addCopyButtons } from '../utils/helpers.js';
 class KeyValidationService {
     constructor() {
         this.STORAGE_KEY = 'wormgpt_access_key';
-        this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production URL
+        this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production API URL
         this.FRONTEND_URL = 'https://wormgpt-frontend.onrender.com'; // Frontend base URL
         this.SESSION_KEY = 'validated';
-        this.VALIDATION_STATE_KEY = 'key_validation_state'; // Add new state key
+        this.VALIDATION_STATE_KEY = 'key_validation_state'; // New state key
     }
 
     validateKeyFormat(key) {
@@ -39,17 +39,16 @@ class KeyValidationService {
             const data = await response.json();
             console.log('Server response:', data);
 
-            // Server-side validation check
             if (!data.valid) {
                 return data;
             }
 
-            // Client-side expiry check
+            // Check for expiration
             const now = new Date();
             const expiryTime = new Date(data.expiryTime);
 
             if (now >= expiryTime) {
-                this.clearValidation(false); // Don't redirect immediately
+                this.clearValidation(false); 
                 return {
                     valid: false,
                     message: 'This key has expired'
@@ -72,11 +71,10 @@ class KeyValidationService {
                 localStorage.setItem(this.SESSION_KEY, 'true');
                 localStorage.setItem(this.VALIDATION_STATE_KEY, JSON.stringify(validationState));
                 
-                // Reset chat limits AND immediately update display
+                // Reset chat limits and update UI
                 await chatLimitService.resetChatLimit();
-                await chatLimitService.updateDisplay(); // First update after reset
+                await chatLimitService.updateDisplay();
                 
-                // Update display elements
                 const displayElement = document.querySelector('.chat-limit-display');
                 const remainingChatsCount = document.querySelector('#remaining-chats-count');
                 
@@ -87,10 +85,9 @@ class KeyValidationService {
                     remainingChatsCount.textContent = '40 chats remaining';
                 }
 
-                // Immediately initialize copy buttons after successful validation
                 setTimeout(() => {
                     addCopyButtons();
-                }, 100); // Small delay to ensure DOM is updated
+                }, 100); 
 
                 return {
                     valid: true,
@@ -137,9 +134,8 @@ class KeyValidationService {
             const now = new Date();
             const expiryTime = new Date(keyData.expiryTime);
 
-            // Strict expiry check
             if (now >= expiryTime) {
-                this.clearValidation(); // This will redirect to the correct path now
+                this.clearValidation();
                 return false;
             }
 
@@ -159,7 +155,6 @@ class KeyValidationService {
         const expiryTime = new Date(keyData.expiryTime);
         const diff = expiryTime - now;
 
-        // If expired or negative time, clear validation
         if (diff <= 0) {
             this.clearValidation();
             return null;
@@ -172,15 +167,14 @@ class KeyValidationService {
     }
 
     clearValidation(shouldRedirect = true) {
-        // Clear all storage
         sessionStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.STORAGE_KEY);
         localStorage.removeItem(this.VALIDATION_STATE_KEY);
         
-        // Redirect to validation page with correct path
-        if (shouldRedirect && !window.location.pathname.includes('validation.html')) {
-            window.location.replace(`${this.FRONTEND_URL}/validation.html`);
+        // Redirect to the correct frontend path
+        if (shouldRedirect && window.location.origin !== this.FRONTEND_URL) {
+            window.location.replace(`${this.FRONTEND_URL}/`); // Redirect to homepage or another relevant page
         }
     }
 }
