@@ -95,18 +95,19 @@ export async function regenerate(responseElement, db) {
         // Add artificial delay for UX
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Check if this is the last response
-        const lastMessage = responseElement.parentElement.lastElementChild;
-        if (responseElement !== lastMessage) {
-            throw new Error('Can only regenerate the most recent response');
-        }
-
         // Get message and current personality
         const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
         const selectedPersonality = await personalityService.getSelected();
         if (!selectedPersonality) {
             throw new Error('No personality selected');
         }
+
+        // Get settings and create generative model
+        const settings = settingsService.getSettings();
+        const generativeModel = new GoogleGenerativeAI(settings.apiKey).getGenerativeModel({
+            model: settings.model,
+            systemInstruction: settingsService.getSystemPrompt()
+        });
 
         // Clean up history to remove personality field before sending
         const chat = await chatsService.getCurrentChat(db);
