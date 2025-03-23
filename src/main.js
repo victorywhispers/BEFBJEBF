@@ -71,10 +71,7 @@ function initializeEventListeners() {
         hideOverlayButton.addEventListener("click", () => overlayService.closeOverlay());
     }
 
-    const addPersonalityButton = document.querySelector("#btn-add-personality");
-    if (addPersonalityButton) {
-        addPersonalityButton.addEventListener("click", () => overlayService.showAddPersonalityForm());
-    }
+    // ...rest of code...
 
     const newChatButton = document.querySelector("#btn-new-chat");
     if (newChatButton) {
