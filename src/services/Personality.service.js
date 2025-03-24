@@ -108,12 +108,24 @@ export function share(personality) {
 }
 
 export async function removeAll() {
+    // Clear database first
     await db.personalities.clear();
-    document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
-        if (node.id) {
-            node.remove();
-        }
-    });
+    
+    // Clear UI elements
+    const personalitiesDiv = document.querySelector("#personalitiesDiv");
+    personalitiesDiv.innerHTML = ''; // Clear all personalities
+    
+    // Re-initialize with default personality
+    const defaultPersonalityCard = insert(getDefault());
+    defaultPersonalityCard.querySelector("input").click(); // Auto-select default
+    
+    // Update UI to show default personality is selected
+    const defaultInput = defaultPersonalityCard.querySelector("input[name='personality']");
+    if (defaultInput) {
+        defaultInput.checked = true;
+        // Trigger change event to update any listeners
+        defaultInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
 }
 
 export async function add(personality) {
