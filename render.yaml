@@ -1,0 +1,67 @@
+disks:
+  - name: wormgpt-data
+    mountPath: /data
+    sizeGB: 1
+
+services:
+  # Frontend static site
+  - type: static
+    name: wormgpt-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://wormgpt-api.onrender.com
+      - key: VITE_API_KEY
+        value: "wormgpt_secret_key_2024"
+
+  # Backend API
+  - type: web
+    name: wormgpt-api
+    env: python
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install -r api/requirements.txt
+    startCommand: cd api && gunicorn server:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 0 --keep-alive 5 --access-logfile - --error-logfile - --log-level info
+    envVars:
+      - key: MONGODB_URI
+        value: "mongodb+srv://wormgpt_admin:iwontgiveup@cluster0.o6pjf.mongodb.net/wormgpt?retryWrites=true&w=majority&appName=Cluster0"
+      - key: WEB_CONCURRENCY
+        value: 1
+
+  # Telegram Bot Service
+  - type: web
+    name: wormgpt-keygen
+    env: python
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install -r keygen_requirements.txt
+    startCommand: python KEYGEN.PY
+    envVars:
+      - key: MONGODB_URI
+        value: "mongodb+srv://wormgpt_admin:iwontgiveup@cluster0.o6pjf.mongodb.net/wormgpt?retryWrites=true&w=majority&appName=Cluster0"
+      - key: BOT_TOKEN
+        value: "7787758054:AAH1va0pP1USZ10HlTofCQSTkn33k2h68Mw"
+      - key: PORT
+        value: 10000
+      - key: PYTHON_VERSION
+        value: "3.9.0"
+
+  - type: web
+    name: befbjebf
+    env: python
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: cd api && gunicorn server:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: PORT
+        value: 8000
+
+databases:
+  - name: wormgpt-db
+    plan: free
+    databaseName: wormgpt
+    ipAllowList: []
