@@ -179,8 +179,8 @@ class KeyValidationService {
         localStorage.removeItem(this.VALIDATION_STATE_KEY);
         
         // Redirect to validation page with correct path
-        if (shouldRedirect && !window.location.pathname.includes('validation.html')) {
-            window.location.replace(`${this.FRONTEND_URL}/validation.html`);
+        if (shouldRedirect && !window.location.pathname.includes('/')) {
+            window.location.replace(`${this.FRONTEND_URL}/`);
         }
     }
 }
