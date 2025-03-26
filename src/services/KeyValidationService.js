@@ -5,10 +5,14 @@ import { addCopyButtons } from '../utils/helpers.js';
 class KeyValidationService {
     constructor() {
         this.STORAGE_KEY = 'wormgpt_access_key';
-        this.BASE_URL = 'https://wormgpt-api.onrender.com';  // Hardcoded production URL
-        this.FRONTEND_URL = 'https://wormgpt-frontend.onrender.com'; // Frontend base URL
         this.SESSION_KEY = 'validated';
-        this.VALIDATION_STATE_KEY = 'key_validation_state'; // Add new state key
+        this.VALIDATION_STATE_KEY = 'key_validation_state';
+        
+        // Dynamic base URLs based on environment
+        const isDev = window.location.hostname === 'localhost';
+        // Always use production URL for key validation since local server isn't running
+        this.BASE_URL = 'https://wormgpt-api.onrender.com';
+        this.FRONTEND_URL = isDev ? 'http://localhost:5173' : 'https://wormgpt-frontend.onrender.com';
     }
 
     validateKeyFormat(key) {

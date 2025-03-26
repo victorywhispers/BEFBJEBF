@@ -1,6 +1,90 @@
 import { HarmBlockThreshold, HarmCategory } from "https://esm.run/@google/generative-ai";
 
-// Remove API key input reference
+// API key rotation system
+const API_KEYS = [
+    "AIzaSyBF3BwHKe8Fq7DHzayoiHM_CEquC7eX_cY",
+    "AIzaSyDd5ibQAd13TZ5KJqpvZx_bBzXvzUXj6S4", 
+    "AIzaSyACyFmhUdZ8p9wJpVfUCYZR_IGZO3RAl40",
+    "AIzaSyBbcOJIBxO6_PQ4n7lprMaXbQecMyKmT2U",
+    "AIzaSyB5GP2vYsOV_MGbEqR1jugz8uaUYKasUgA",
+    "AIzaSyBjiesTM-Whd2VLewZBlcRe582o1PbBHFo",
+    "AIzaSyC2PINpMWjWxAdpuZZfij-NZ1HgazXZk5s",
+    "AIzaSyD79HgOlLsw_RmYETPidN0uDRSAlDVpnJ0",
+    "AIzaSyBV0sEOEFFA45_45vwpwRZvlNX3qRi8rFQ",
+    "AIzaSyCMWUMLmM3hEfZB-FHaFkC7vZHswfUz0ig",
+    "AIzaSyCxP8-BCUWsDDgKsaVGlfhb40AqcMi-nJ0",
+    "AIzaSyDK6QLkclQYOZyGwBWerRGefnLiuH89as0"
+];
+
+class KeyManager {
+    constructor() {
+        this._currentKeyIndex = 0;
+        this._requestMap = new Map();
+        this._cooldownMap = new Map();
+        this._requestsPerMinute = 30;
+        this._cooldownTime = 30000; // 30 seconds
+    }
+
+    _getCurrentKey() {
+        return API_KEYS[this._currentKeyIndex];
+    }
+
+    _rotateKey() {
+        this._currentKeyIndex = (this._currentKeyIndex + 1) % API_KEYS.length;
+        console.log('Rotating to next API key:', this._currentKeyIndex);
+    }
+
+    _cleanOldRequests(key) {
+        const now = Date.now();
+        const requests = this._requestMap.get(key) || [];
+        const recentRequests = requests.filter(time => now - time < 60000);
+        this._requestMap.set(key, recentRequests);
+        return recentRequests;
+    }
+
+    _isKeyRateLimited(key) {
+        const requests = this._cleanOldRequests(key);
+        const isCooling = this._cooldownMap.get(key) > Date.now();
+        return requests.length >= this._requestsPerMinute || isCooling;
+    }
+
+    _setKeyCooldown(key) {
+        this._cooldownMap.set(key, Date.now() + this._cooldownTime);
+    }
+
+    _recordRequest(key) {
+        const requests = this._requestMap.get(key) || [];
+        requests.push(Date.now());
+        this._requestMap.set(key, requests);
+    }
+
+    getApiKey() {
+        let attempts = 0;
+        const maxAttempts = API_KEYS.length;
+
+        while (attempts < maxAttempts) {
+            const currentKey = this._getCurrentKey();
+            
+            if (!this._isKeyRateLimited(currentKey)) {
+                this._recordRequest(currentKey);
+                return currentKey;
+            }
+
+            this._rotateKey();
+            attempts++;
+        }
+
+        // If all keys are rate limited, force reset the first available key
+        const firstKey = API_KEYS[0];
+        this._cooldownMap.delete(firstKey);
+        this._requestMap.set(firstKey, []);
+        this._currentKeyIndex = 0;
+        return firstKey;
+    }
+}
+
+const keyManager = new KeyManager();
+
 const maxTokensInput = document.querySelector("#maxTokens");
 const temperatureInput = document.querySelector("#temperature");
 const modelSelect = document.querySelector("#selectedModel");
@@ -27,9 +111,9 @@ export function saveSettings() {
 
 export function getSettings() {
     return {
-        apiKey: "AIzaSyDK6QLkclQYOZyGwBWerRGefnLiuH89as0", // Hardcoded API key
-        maxTokens: maxTokensInput.value,
-        temperature: temperatureInput.value,
+        apiKey: keyManager.getApiKey(),
+        maxTokens: parseInt(maxTokensInput.value),
+        temperature: temperatureInput.value / 100,
         safetySettings: [
             {
                 category: HarmCategory.HARM_CATEGORY_HARASSMENT,
