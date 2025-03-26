@@ -2794,61 +2794,59 @@ textarea:focus {
 .policy-page {
     position: fixed;
     inset: 0;
-    background: black;
+    background: var(--dark-bg);
     z-index: 10000;
     display: flex;
     flex-direction: column;
-    padding: 2rem;
-    animation: fade-in 0.3s ease;
+    height: 100vh;
+    overflow: hidden;
 }
 
 .back-button {
+    position: sticky;
+    top: 0;
+    left: 0;
+    padding: 1rem;
+    background: rgba(13, 17, 23, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(139, 0, 0, 0.2);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: transparent;
-    border: none;
     color: #ef4444;
-    font-size: 0.9rem;
-    font-weight: 500;
-    padding: 0.5rem;
-    border-radius: 6px;
-    width: fit-content;
+    cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .back-button:hover {
-    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
     transform: translateX(-2px);
 }
 
 .policy-content {
+    flex: 1;
+    overflow-y: auto;
     max-width: 42rem;
-    margin: 2rem auto;
-    background: rgba(17, 17, 17, 0.95);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 1rem;
+    margin: 0 auto;
     padding: 2rem;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(17, 24, 39, 0.95);
+    border: 1px solid rgba(139, 0, 0, 0.2);
+    border-radius: 1rem;
+    color: #e4e4e4;
 }
 
 .policy-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
     margin-bottom: 2rem;
 }
 
 .policy-header h2 {
+    color: #ffffff;
     font-size: 1.75rem;
     font-weight: 600;
-    color: white;
-}
-
-.policy-header .material-symbols-outlined {
-    font-size: 2rem;
-    color: #ef4444;
+    margin-bottom: 1rem;
 }
 
 .policy-body {
@@ -2857,7 +2855,7 @@ textarea:focus {
 }
 
 .policy-body h3 {
-    color: white;
+    color: #ffffff;
     font-size: 1.25rem;
     font-weight: 600;
     margin: 1.5rem 0 1rem;
@@ -2874,14 +2872,130 @@ textarea:focus {
     align-items: center;
     gap: 0.5rem;
     margin: 0.5rem 0;
+    color: #9ca3af;
 }
 
 .policy-body li::before {
     content: "";
     width: 6px;
     height: 6px;
-    background: #ef4444;
+    background: var(--accent-primary);
     border-radius: 50%;
+}
+
+.policy-body a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.policy-body a:hover {
+    color: var(--accent-hover);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .policy-content {
+        margin: 0.5rem;
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+    }
+    
+    .back-button {
+        padding: 1rem;
+    }
+    
+    .policy-header h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Extra small screen fixes */
+@media (max-width: 320px) {
+    .policy-content {
+        margin: 0.25rem;
+        padding: 1rem;
+    }
+    
+    .policy-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .policy-body {
+        font-size: 0.9rem;
+    }
+}
+
+/* Policy Pages Styling */
+.policy-page {
+    position: fixed;
+    inset: 0;
+    background: black;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden; /* Prevent body scroll */
+}
+
+.back-button {
+    position: sticky;
+    top: 0;
+    left: 0;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1;
+    margin-bottom: 0.5rem;
+}
+
+.policy-content {
+    flex: 1;
+    overflow-y: auto; /* Enable scrolling */
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 1rem;
+    background: rgba(17, 17, 17, 0.95);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 1rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .policy-page {
+        padding: 0; /* Remove padding on mobile */
+    }
+    
+    .policy-content {
+        margin: 0 0.5rem;
+        padding: 1rem;
+        border-radius: 0.75rem;
+    }
+    
+    .back-button {
+        padding: 0.75rem 1rem;
+    }
+}
+
+/* Extra small screen fixes */
+@media (max-width: 320px) {
+    .policy-content {
+        margin: 0 0.25rem;
+        padding: 0.75rem;
+    }
+    
+    .policy-header {
+        margin-bottom: 1rem;
+    }
+    
+    .policy-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .policy-body {
+        font-size: 0.9rem;
+    }
 }
 
 /* Update verification page logo font */
@@ -3179,4 +3293,115 @@ pre code {
 .btn-refresh:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Verification Page Responsive Fixes */
+.verification-overlay {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+    position: fixed;
+    inset: 0;
+    background: black;
+    z-index: 9999;
+}
+
+.verification-nav {
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.verification-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.verification-card {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(17, 24, 39, 0.95);
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    margin: 1rem;
+}
+
+.key-input-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.verification-input {
+    width: 100%;
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 0.5rem;
+    color: white;
+    font-size: 0.9rem;
+}
+
+/* Mobile Optimizations */
+@media screen and (max-width: 480px) {
+    .verification-nav {
+        padding: 0.75rem;
+    }
+    
+    .logo-image {
+        height: 32px;
+        width: auto;
+    }
+    
+    .nav-button {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    .verification-card {
+        margin: 0.5rem;
+        padding: 1rem;
+    }
+    
+    .card-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .card-description {
+        font-size: 0.85rem;
+    }
+    
+    .verification-input {
+        padding: 0.7rem;
+        font-size: 0.85rem;
+    }
+    
+    .verify-button {
+        padding: 0.7rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Fix for extra small screens */
+@media screen and (max-width: 320px) {
+    .verification-card {
+        padding: 0.75rem;
+    }
+    
+    .nav-buttons {
+        gap: 0.5rem;
+    }
+    
+    .nav-button {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.7rem;
+    }
 }
