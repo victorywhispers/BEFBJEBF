@@ -93,22 +93,6 @@ function insert(personality) {
     return card;
 }
 
-export function share(personality) {
-    const personalityCopy = {...personality}
-    delete personalityCopy.id
-    //export personality to a string
-    const personalityString = JSON.stringify(personalityCopy)
-    //download
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityString));
-    element.setAttribute('download', `${personality.name}.json`);
-    element.style.display = 'none';
-    //appending the element is required for firefox
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-}
-
 export async function removeAll() {
     await db.personalities.clear();
     document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
@@ -161,14 +145,10 @@ export function generateCard(personality) {
             `;
 
     // Add event listeners
-    const shareButton = card.querySelector(".btn-share-card");
     const deleteButton = card.querySelector(".btn-delete-card");
     const editButton = card.querySelector(".btn-edit-card");
     const input = card.querySelector("input");
 
-    shareButton.addEventListener("click", () => {
-        share(personality);
-    });
     if (deleteButton) {
         deleteButton.addEventListener("click", () => {
             //first if the personality to delete is the one currently selected, we select the default personality
@@ -188,4 +168,3 @@ export function generateCard(personality) {
     }
     return card;
 }
-
