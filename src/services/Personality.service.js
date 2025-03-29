@@ -151,8 +151,6 @@ export function generateCard(personality) {
             <div class="btn-array-personalityactions">
                 ${personality.id ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
                     id="btn-edit-personality-${personality.name}">edit</button>` : ''}
-                <button class="btn-textual btn-share-card material-symbols-outlined" 
-                    id="btn-share-personality-${personality.name}">share</button>
                 ${personality.id ? `<button class="btn-textual btn-delete-card material-symbols-outlined"
                     id="btn-delete-personality-${personality.name}">delete</button>` : ''}
             </div>
