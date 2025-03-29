@@ -60,10 +60,10 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             };
         }
 
+        const messageText = newMessage.querySelector('.message-text');
         if (!netStream && msg) {
-            const messageText = newMessage.querySelector('.message-text');
             messageText.innerHTML = marked.parse(msg);
-            helpers.addCopyButtons(); // Add copy buttons immediately after parsing markdown
+            helpers.addCopyButtons();
         }
     } else {
         newMessage.innerHTML = `
@@ -106,8 +106,8 @@ export async function regenerate(responseElement, db) {
             refreshBtn.innerHTML = '<span class="material-symbols-outlined loading">sync</span>';
         }
 
-        // Add artificial delay for UX
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Add artificial delay for processing animation
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Get the original user message
         const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
@@ -116,26 +116,19 @@ export async function regenerate(responseElement, db) {
             throw new Error('No personality selected');
         }
 
-        // Get settings and create generative model
+        // Rest of your existing code...
         const settings = settingsService.getSettings();
         const generativeModel = new GoogleGenerativeAI(settings.apiKey).getGenerativeModel({
             model: settings.model,
             systemInstruction: settingsService.getSystemPrompt()
         });
 
-        // Get the original message and its index
+        // Get chat history up to this message
         const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
         const chat = await chatsService.getCurrentChat(db);
-        
-        // Keep only history up to this message's position
         chat.content = chat.content.slice(0, elementIndex);
-        
-        // Get all history up to current message for context
-        const cleanHistory = chat.content.map(msg => ({
-            role: msg.role,
-            parts: msg.parts
-        }));
 
+        // Create chat context with history
         const chatContext = generativeModel.startChat({
             generationConfig: {
                 maxOutputTokens: settings.maxTokens,
@@ -154,41 +147,62 @@ export async function regenerate(responseElement, db) {
                 ...(selectedPersonality.toneExamples ? selectedPersonality.toneExamples.map((tone) => {
                     return { role: "model", parts: [{ text: tone }] }
                 }) : []),
-                ...cleanHistory  // Include ALL chat history
+                ...chat.content.map(msg => ({
+                    role: msg.role,
+                    parts: msg.parts
+                }))
             ]
         });
 
-        // Remove old response and generate new one
+        // Remove old response 
         responseElement.remove();
-        const result = await chatContext.sendMessage(message);
-        const response = await result.response;
 
-        // Create new message element with personality name
+        // Stream the new response with loading state
+        const streamResult = await chatContext.sendMessageStream(message);
         const messageElement = await insertMessage(
-            "model", 
-            "", 
-            selectedPersonality.name, // Pass personality name here
-            null, 
+            "model",
+            "",
+            selectedPersonality.name,
+            null,
             db
         );
-        const messageText = messageElement.querySelector('.message-text');
-        const text = response.text();
-        
-        messageText.innerHTML = marked.parse(text);
-        helpers.addCopyButtons();
-        helpers.messageContainerScrollToBottom();
 
-        // Update chat history with personality info
-        chat.content.push({ 
-            role: "model",
-            personality: selectedPersonality.name, // Keep personality in history
-            parts: [{ text: text }]
-        });
-        await db.chats.put(chat);
+        // Handle streaming with loading state
+        let fullText = "";
+        const messageText = messageElement.querySelector('.message-text');
+        
+        try {
+            messageText.innerHTML = '<span class="loading-dots">Generating</span>';
+            
+            for await (const chunk of streamResult.stream) {
+                const chunkText = chunk.text();
+                fullText += chunkText;
+                messageText.innerHTML = marked.parse(fullText);
+                helpers.messageContainerScrollToBottom();
+            }
+
+            // Add copy buttons after full response
+            helpers.addCopyButtons();
+
+            // Update chat history
+            chat.content.push({
+                role: "model",
+                personality: selectedPersonality.name,
+                parts: [{ text: fullText }]
+            });
+            await db.chats.put(chat);
+        } catch (streamError) {
+            console.error('Streaming error:', streamError);
+            throw streamError;
+        }
 
     } catch (error) {
         console.error('Error regenerating message:', error);
-        ErrorService.showError('Failed to regenerate response. Please try again.');
+        if (error.status === 429) {
+            ErrorService.showError('Rate limit reached. Please try again later or switch to the Flash model.');
+        } else {
+            ErrorService.showError('Failed to regenerate response. Please try again.');
+        }
     } finally {
         // Re-enable all controls
         sendButton.disabled = false;
@@ -276,34 +290,46 @@ export async function send(msg, db) {
         });
 
         try {
-            const result = await chat.sendMessage(msg);
-            const response = await result.response;
+            const result = await chat.sendMessageStream(msg); // Changed to sendMessageStream
             const messageElement = await insertMessage("model", "", selectedPersonality.name, null, db);
             const messageText = messageElement.querySelector('.message-text');
             
-            const text = response.text();
-            messageText.innerHTML = marked.parse(text);
-            helpers.addCopyButtons(); // Add copy buttons immediately after parsing markdown
-            helpers.messageContainerScrollToBottom();
+            let fullText = "";
+            // Handle streaming
+            try {
+                for await (const chunk of result.stream) {
+                    const chunkText = chunk.text();
+                    fullText += chunkText;
+                    messageText.innerHTML = marked.parse(fullText);
+                    helpers.messageContainerScrollToBottom();
+                }
 
-            // Save both messages in chat history
-            const currentChat = await chatsService.getCurrentChat(db);
-            if (!currentChat.content.some(m => m.role === "user" && m.parts[0].text === msg)) {
-                currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-            }
-            currentChat.content.push({ 
-                role: "model", 
-                personality: selectedPersonality.name, 
-                parts: [{ text: text }] 
-            });
-            await db.chats.put(currentChat);
+                // Add copy buttons after full response
+                helpers.addCopyButtons();
 
-            const refreshBtn = messageElement.querySelector('.btn-refresh');
-            if (refreshBtn) {
-                refreshBtn.onclick = async () => {
-                    await regenerate(messageElement, db); // Pass db here
-                };
+                // Save both messages in chat history
+                const currentChat = await chatsService.getCurrentChat(db);
+                if (!currentChat.content.some(m => m.role === "user" && m.parts[0].text === msg)) {
+                    currentChat.content.push({ role: "user", parts: [{ text: msg }] });
+                }
+                currentChat.content.push({ 
+                    role: "model", 
+                    personality: selectedPersonality.name, 
+                    parts: [{ text: fullText }] 
+                });
+                await db.chats.put(currentChat);
+
+                const refreshBtn = messageElement.querySelector('.btn-refresh');
+                if (refreshBtn) {
+                    refreshBtn.onclick = async () => {
+                        await regenerate(messageElement, db);
+                    };
+                }
+            } catch (streamError) {
+                console.error('Streaming error:', streamError);
+                throw streamError;
             }
+            
         } catch (error) {
             console.error('Error in chat response:', error);
             throw error;
